@@ -1,14 +1,20 @@
+#!/bin/env python
+import builtins
+import importlib
 import inspect
 import os
 import re
+import subprocess
 import sys
 import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from enum import Enum
 from ordered_set import OrderedSet
+from os import path
 from typing import Callable, Optional, Self
 
+builtins.bt = sys.modules[__name__]
 Runnable = Callable[[], None]
 
 class State(Enum):
@@ -91,6 +97,9 @@ def parameter(name: str, default = None, require = False):
 def join(args: Iterable[str]):
 	return " ".join(args)
 
+def sh(commandLine: str, *args, **kwargs):
+	subprocess.run(str, *args, **kwargs, shell = True)
+
 def main():
 	caller.join()
 	erred = False
@@ -156,7 +165,7 @@ def main():
 			run(dependency, task)
 			if dependency.state == State.DONE: skip = False
 
-		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not os.path.exists(input)]:
+		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
 			exit()
 
 		if skip and not task.force\
@@ -178,13 +187,15 @@ def main():
 		for task in tasks.values():
 			if task.default: run(task)
 
-os.chdir(os.path.dirname(sys.argv[0]))
+def supplyExports():
+	frames = inspect.getouterframes(inspect.currentframe())[1:]
 
-frames = inspect.getouterframes(inspect.currentframe())[1:]
+	if callerFrame := first(f for f in frames if f.code_context and any(re.search(r"import\s+bt", c) for c in f.code_context)):
+		for name, export in exports.items():
+			callerFrame.frame.f_globals[name] = export
 
-if callerFrame := first(f for f in frames if f.code_context and any(re.search(r"import\s+bt", c) for c in f.code_context)):
-	for export in [Files, join, parameter, task]:
-		callerFrame.frame.f_globals[export.__name__] = export
+exports = {export.__name__: export for export in [Files, join, parameter, sh, task]}
+supplyExports()
 
 tasks: dict[str, Task] = {}
 parameters: dict[str, str] = {}
@@ -194,6 +205,16 @@ split = next((i for i, a in enumerate(args) if "=" in a), len(args))
 
 for arg in args[split:]:
 	parameters.update([arg.split("=", 2)])
+
+mainPath = path.abspath(sys.argv[0])
+mainDirectory = path.dirname(mainPath)
+
+if __name__ == "__main__":
+	if entry := first(path for path in ["bs", "bs.py"] if os.path.exists(path)):
+		sys.path.append(mainDirectory if path.isdir(mainPath) else path.dirname(mainDirectory))
+		with open(entry) as script: exec(script.read(), {"bt": exports} | exports)
+	else: exit(print("No build script (bs or bs.py) was found."))
+else: os.chdir(mainDirectory)
 
 caller = threading.current_thread()
 thread = threading.Thread(target = main, daemon = False)
