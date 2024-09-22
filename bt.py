@@ -1,0 +1,202 @@
+import inspect
+import os
+import re
+import sys
+import threading
+import time
+from collections.abc import Iterable, Mapping, Sequence
+from enum import Enum
+from ordered_set import OrderedSet
+from typing import Callable, Optional, Self
+
+Runnable = Callable[[], None]
+
+class State(Enum):
+	NORMAL = 0
+	RUNNING = 1
+	DONE = 2
+	SKIPPED = 3
+
+class Files:
+	def __init__(this, *files):
+		this.files = OrderedSet()
+
+		def flatten(f):
+			if isinstance(f, str): this.files.add(f)
+			elif isinstance(f, Mapping): flatten(f.values())
+			elif isinstance(f, Iterable):
+				for e in f: flatten(e)
+			elif callable(f): flatten(f())
+			else: raise AssertionError(f"({repr(output)}) cannot be converted to a file (is not a string, a list, or callable).")
+
+		flatten(files)
+
+	def __iter__(this): return iter(this.files)
+
+	def __repr__(this): return f"Files({", ".join(this.files)})"
+
+class Task:
+	def __init__(this, task: Runnable, dependencies: list[Self], kw: dict[str, object]):
+		this.name = task.__name__
+		this.fn = task
+		this.dependencies = dependencies
+		this.state = State.NORMAL
+		this.force = False
+		this.default = kw.get("default", False)
+		this.export = kw.get("export", True)
+		this.input = kw.get("input", [])
+		this.output = kw.get("output", [])
+		this.inputFiles = []
+		this.outputFiles = []
+
+	def __call__(this, *args, **kw):
+		if not kw and len(args) == 1 and callable(args[0]):
+			tasks.pop(this.name)
+			return registerTask(*args, [this.fn], kw)
+
+		return this.fn()
+
+def first(iterator):
+	return next(iterator, None)
+	
+def findTask(task: str | Runnable | Task, error = True, convert = True) -> Optional[Task]:
+	if isinstance(task, Task): return task
+
+	if match := first(t for t in tasks.values() if task in [t, t.fn, t.name]): return match
+
+	if match := first(t for t in tasks.values() if task == t.name + "!"):
+		match.force = True
+		return match
+
+	if convert and callable(task): return registerTask(task, named = False)
+	if error: return exit(print(f'No task matched {repr(task)}.'))
+
+def registerTask(fn: Runnable, dependencies: list = [], kw = {}, named = True):
+	t = Task(fn, [findTask(d) for d in dependencies], kw)
+	tasks[t.name if named and t.export != False else t] = t
+	return t
+
+def task(*args, **kw):
+	if kw or len(args) != 1 or not callable(args[0]) or isinstance(args[0], Task):
+		return lambda fn: registerTask(fn, args, kw)
+
+	return registerTask(*args, [], kw)
+
+def parameter(name: str, default = None, require = False):
+	assert isinstance(name, str), "Given parameter name is not a string."
+	value = parameters.get(name, default)
+	if not value and require: exit(print(f'Parameter "{name}" must be set.'))
+	return value
+
+def join(args: Iterable[str]):
+	return " ".join(args)
+
+def main():
+	caller.join()
+	erred = False
+
+	def error(task: Optional[Task], message: str = None):
+		nonlocal erred
+		erred = not print(f"Task {task.name}: {message}." if message else task)
+
+	for task in tasks.values():
+		if not isinstance(task.default, bool): error(task, f"default ({repr(task.default)}) is not a bool")
+		if not isinstance(task.export, bool): error(task, f"export ({repr(task.export)}) is not a bool")
+
+		if task.input:
+			def flatten(inputs, container = None, i = None):
+				changed = True
+
+				if inspect.isroutine(inputs): inputs = inputs()
+				else: changed = False
+
+				if isinstance(inputs, Files): task.inputFiles.extend(inputs.files)
+				elif isinstance(inputs, Mapping): inputs = list(inputs.values())
+				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)
+				else: changed = False
+
+				if changed and container: container[i] = inputs
+
+				if isinstance(inputs, Iterable) and not isinstance(inputs, str):
+					for i, input in enumerate(inputs): flatten(input, inputs, i)
+
+				return inputs
+
+			task.input = flatten(task.input)
+			print(task.name, "input", task.input)
+
+		if task.output:
+			def flatten(output):
+				if isinstance(output, str): task.outputFiles.append(output)
+				elif isinstance(output, Mapping): flatten(output.values())
+				elif isinstance(output, Iterable):
+					for o in output: flatten(o)
+				elif callable(output): flatten(output())
+				else: error(task, f"({repr(output)}) is not a file (a string, a list, or callable)")
+
+			flatten(task.output)
+			print(task.name, "output", task.outputFiles)
+
+	cmdTasks = [findTask(task) or task for task in args[:split]]
+
+	if [not error(f'"{task}" does not match an exported task') for task in cmdTasks if isinstance(task, str)]:
+		print("Exported tasks are listed below.", *(name for name, task in tasks.items() if isinstance(name, str)), sep = "\n")
+
+	if erred: return
+
+	started = False
+
+	def run(task: Task, parent: Task = None):
+		if task.state == State.RUNNING: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
+		if task.state != State.NORMAL: return
+
+		skip = True
+
+		for dependency in task.dependencies:
+			run(dependency, task)
+			if dependency.state == State.DONE: skip = False
+
+		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not os.path.exists(input)]:
+			exit()
+
+		if skip and not task.force\
+		and task.outputFiles and all(os.path.exists(output) for output in task.outputFiles)\
+		and not any(os.path.getmtime(input) > os.path.getmtime(output) for output in task.outputFiles for input in task.inputFiles):
+			task.state = State.SKIPPED
+			return
+
+		nonlocal started
+		if started: print()
+		else: started = True
+		print(">", task.name)
+		task.fn()
+		task.state = State.DONE
+
+	for task in cmdTasks: run(task)
+
+	if not started:
+		for task in tasks.values():
+			if task.default: run(task)
+
+os.chdir(os.path.dirname(sys.argv[0]))
+
+frames = inspect.getouterframes(inspect.currentframe())[1:]
+
+if callerFrame := first(f for f in frames if f.code_context and any(re.search(r"import\s+bt", c) for c in f.code_context)):
+	for export in [Files, join, parameter, task]:
+		callerFrame.frame.f_globals[export.__name__] = export
+
+tasks: dict[str, Task] = {}
+parameters: dict[str, str] = {}
+
+args = sorted(sys.argv[1:], key = lambda a: "=" in a)
+split = next((i for i, a in enumerate(args) if "=" in a), len(args))
+
+for arg in args[split:]:
+	parameters.update([arg.split("=", 2)])
+
+caller = threading.current_thread()
+thread = threading.Thread(target = main, daemon = False)
+thread.start()
+hook = threading.excepthook
+threading.excepthook = lambda args: args.thread == caller and thread._stop() or hook(args)
