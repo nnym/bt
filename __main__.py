@@ -206,7 +206,7 @@ split = next((i for i, a in enumerate(args) if "=" in a), len(args))
 for arg in args[split:]:
 	parameters.update([arg.split("=", 2)])
 
-mainPath = path.abspath(sys.argv[0])
+mainPath = path.realpath(sys.argv[0])
 mainDirectory = path.dirname(mainPath)
 
 if __name__ == "__main__":
