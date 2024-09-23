@@ -145,7 +145,7 @@ def main():
 				elif isinstance(output, Iterable):
 					for o in output: flatten(o)
 				elif callable(output): flatten(output())
-				else: error(task, f"({output!r}) is not a file (a string, a list, or callable)")
+				else: error(task, f"({output!r}) is not a file (a string, iterable, or callable)")
 
 			flatten(task.output)
 
