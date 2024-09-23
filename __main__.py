@@ -122,38 +122,6 @@ def main():
 		if not isinstance(task.default, bool): error(task, f"default ({task.default!r}) is not a bool")
 		if not isinstance(task.export, bool): error(task, f"export ({task.export!r}) is not a bool")
 
-		if task.input:
-			def flatten(inputs, container = None, i = None):
-				changed = True
-
-				if inspect.isroutine(inputs): inputs = inputs()
-				else: changed = False
-
-				if isinstance(inputs, Files): task.inputFiles.extend(inputs.files)
-				elif isinstance(inputs, Mapping): inputs = list(inputs.values())
-				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)
-				else: changed = False
-
-				if changed and container: container[i] = inputs
-
-				if isinstance(inputs, Iterable) and not isinstance(inputs, str):
-					for i, input in enumerate(inputs): flatten(input, inputs, i)
-
-				return inputs
-
-			task.input = flatten(task.input)
-
-		if task.output:
-			def flatten(output):
-				if isinstance(output, str): task.outputFiles.append(output)
-				elif isinstance(output, Mapping): flatten(output.values())
-				elif isinstance(output, Iterable):
-					for o in output: flatten(o)
-				elif callable(output): flatten(output())
-				else: error(task, f"({output!r}) is not a file (a string, iterable, or callable)")
-
-			flatten(task.output)
-
 	cmdTasks = [findTask(task, command = True) or task for task in args[:split]]
 
 	if [not error(f'"{task}" does not match an exported task') for task in cmdTasks if isinstance(task, str)]:
@@ -183,6 +151,33 @@ def main():
 		for dependency in task.dependencies:
 			run(dependency, task)
 			if dependency.done and not dependency.pure: skip = False
+
+		if task.input:
+			def flatten(inputs):
+				if inspect.isroutine(inputs): inputs = inputs()
+
+				if isinstance(inputs, Files): task.inputFiles.extend(inputs.files)
+				elif isinstance(inputs, Mapping): inputs = list(inputs.values())
+				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)
+
+				if isinstance(inputs, Sequence) and not isinstance(inputs, str):
+					for i, input in enumerate(inputs):
+						inputs[i] = flatten(input)
+
+				return inputs
+
+			task.input = flatten(task.input)
+
+		if task.output:
+			def flatten(output):
+				if isinstance(output, str): task.outputFiles.append(output)
+				elif isinstance(output, Mapping): flatten(output.values())
+				elif isinstance(output, Iterable):
+					for o in output: flatten(o)
+				elif callable(output): flatten(output())
+				else: error(task, f"({output!r}) is not a file (a string, iterable, or callable)")
+
+			flatten(task.output)
 
 		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
 			exit()
