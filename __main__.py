@@ -215,7 +215,7 @@ def main():
 
 				return inputs
 
-			task.input = flatten(task.input)
+			task.input = [flatten(task.input), [os.path.getmtime(input) for input in task.inputFiles]]
 
 		if task.output:
 			def flatten(output):
@@ -232,8 +232,7 @@ def main():
 			exit()
 
 		if (skip and not task.force and task.input == cache.get(task.name, None)
-		and (task.input or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)
-		and all(path.getmtime(input) <= path.getmtime(output) for output in task.outputFiles for input in task.inputFiles)):
+		and (task.input or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
 			task.state = State.SKIPPED
 			return
 
