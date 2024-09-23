@@ -244,9 +244,9 @@ def main():
 		task.fn()
 		task.state = State.DONE
 
-	for task in cmdTasks: run(task)
-
-	if not started:
+	if cmdTasks:
+		for task in cmdTasks: run(task)
+	else:
 		for task in tasks.values():
 			if task.default: run(task)
 
