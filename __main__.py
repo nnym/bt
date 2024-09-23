@@ -107,8 +107,8 @@ def parameter(name: str, default = None, require = False):
 def join(args: Iterable[str]):
 	return " ".join(args)
 
-def sh(commandLine: str, *args, **kwargs):
-	return subprocess.run(commandLine, *args, **kwargs, shell = True)
+def sh(commandLine: str, *args, shell = True, text = True, **kwargs):
+	return subprocess.run(commandLine, *args, shell = shell, text = text, **kwargs)
 
 def main():
 	caller.join()
