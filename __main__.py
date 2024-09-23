@@ -56,6 +56,7 @@ class Task:
 		this.force = False
 		this.default = kw.get("default", False)
 		this.export = kw.get("export", True)
+		this.pure = kw.get("pure", False)
 		this.input = kw.get("input", [])
 		this.output = kw.get("output", [])
 		this.inputFiles = []
@@ -83,7 +84,7 @@ def findTask(task: str | Runnable | Task, error = True, convert = True, command 
 		match.force = True
 		return match
 
-	if convert and callable(task): return registerTask(task, kw = {"export": False})
+	if convert and callable(task): return registerTask(task, kw = {"export": False, "pure": True})
 	if error: return exit(print(f'No task matched {task!r}.'))
 
 def registerTask(fn: Runnable, dependencies: list = [], kw = {}):
@@ -181,7 +182,7 @@ def main():
 
 		for dependency in task.dependencies:
 			run(dependency, task)
-			if dependency.done: skip = False
+			if dependency.done and not dependency.pure: skip = False
 
 		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
 			exit()
