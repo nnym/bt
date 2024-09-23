@@ -182,7 +182,7 @@ def main():
 			exit()
 
 		if skip and not task.force and task.input == cache.get(task.name, None)\
-		and task.outputFiles and all(os.path.exists(output) for output in task.outputFiles)\
+		and (task.input or task.outputFiles) and all(os.path.exists(output) for output in task.outputFiles)\
 		and not any(os.path.getmtime(input) > os.path.getmtime(output) for output in task.outputFiles for input in task.inputFiles):
 			task.state = State.SKIPPED
 			return
