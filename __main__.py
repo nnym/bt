@@ -157,6 +157,7 @@ def join(args: Iterable[str]):
 	return " ".join(args)
 
 def sh(commandLine: str, *args, shell = True, text = True, **kwargs):
+	if isinstance(commandLine, Arguments): commandLine = str(commandLine)
 	return subprocess.run(commandLine, *args, shell = shell, text = text, **kwargs)
 
 def main():
