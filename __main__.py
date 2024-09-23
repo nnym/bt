@@ -38,7 +38,7 @@ class Files:
 			elif isinstance(f, Iterable):
 				for e in f: flatten(e)
 			elif callable(f): flatten(f())
-			else: raise AssertionError(f"({output!r}) cannot be converted to a file (is not a string, a list, or callable).")
+			else: raise AssertionError(f"{output!r} cannot be converted to a file (is not a string, a list, or callable).")
 
 		flatten(files)
 
@@ -79,13 +79,13 @@ def findTask(task: str | Runnable | Task, error = True, convert = True, command 
 		match.force = True
 		return match
 
-	if convert and callable(task): return registerTask(task, export = False)
+	if convert and callable(task): return registerTask(task, kw = {"export": False})
 	if error: return exit(print(f'No task matched {task!r}.'))
 
 def registerTask(fn: Runnable, dependencies: list = [], kw = {}):
-	t = Task(fn, [findTask(d) for d in dependencies], kw)
-	tasks[t.name if t.export else t] = t
-	return t
+	task = Task(fn, [findTask(d) for d in dependencies], kw)
+	tasks[task.name if task.export else task] = task
+	return task
 
 def task(*args, **kw):
 	if kw or len(args) != 1 or not callable(args[0]) or isinstance(args[0], Task):
@@ -94,7 +94,7 @@ def task(*args, **kw):
 	return registerTask(*args, [], kw)
 
 def parameter(name: str, default = None, require = False):
-	assert isinstance(name, str), "Given parameter name is not a string."
+	assert isinstance(name, str), f"Parameter name ({name!r}) must be a string."
 	value = parameters.get(name, default)
 	if not value and require: exit(print(f'Parameter "{name}" must be set.'))
 	return value
@@ -181,9 +181,9 @@ def main():
 		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
 			exit()
 
-		if skip and not task.force and task.input == cache.get(task.name, None)\
-		and (task.input or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)\
-		and all(path.getmtime(input) <= path.getmtime(output) for output in task.outputFiles for input in task.inputFiles):
+		if (skip and not task.force and task.input == cache.get(task.name, None)
+		and (task.input or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)
+		and all(path.getmtime(input) <= path.getmtime(output) for output in task.outputFiles for input in task.inputFiles)):
 			task.state = State.SKIPPED
 			return
 
