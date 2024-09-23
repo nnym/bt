@@ -65,12 +65,12 @@ class Task:
 def first(iterator):
 	return next(iterator, None)
 	
-def findTask(task: str | Runnable | Task, error = True, convert = True) -> Optional[Task]:
+def findTask(task: str | Runnable | Task, error = True, convert = True, command = False) -> Optional[Task]:
 	if isinstance(task, Task): return task
 
-	if match := first(t for t in tasks.values() if task in [t, t.fn, t.name]): return match
+	if match := first(t for t in tasks.values() if task in [t, t.fn, t.name] and (not command or t.export)): return match
 
-	if match := first(t for t in tasks.values() if task == t.name + "!"):
+	if match := first(t for t in tasks.values() if task == t.name + "!" and (not command or t.export)):
 		match.force = True
 		return match
 
@@ -146,7 +146,7 @@ def main():
 			flatten(task.output)
 			print(task.name, "output", task.outputFiles)
 
-	cmdTasks = [findTask(task) or task for task in args[:split]]
+	cmdTasks = [findTask(task, command = True) or task for task in args[:split]]
 
 	if [not error(f'"{task}" does not match an exported task') for task in cmdTasks if isinstance(task, str)]:
 		print("Exported tasks are listed below.", *(name for name, task in tasks.items() if isinstance(name, str)), sep = "\n")
