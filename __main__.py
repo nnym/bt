@@ -6,6 +6,7 @@ import inspect
 import os
 import pickle
 import re
+import shlex
 import subprocess
 import sys
 import threading
@@ -27,6 +28,54 @@ class State(Enum):
 	RUNNING = 1
 	DONE = 2
 	SKIPPED = 3
+
+class FlatList(list):
+	def transform(this, x, single, multiple):
+		return x
+
+	def append(this, x):
+		x = this.transform(x)
+		if isinstance(x, Iterable) and not isinstance(x, str): this.extend(x)
+		elif x: super().append(x)
+
+	def insert(this, i, x):
+		x = this.transform(x)
+		if isinstance(x, Iterable) and not isinstance(x, str): this[i:i] = x
+		elif x: super().insert(i, x)
+
+	def extend(this, x):
+		if x := this.transform(x):
+			assert isinstance(x, Iterable), f"{x!r} is not iterable."
+			super().extend(x)
+		return this
+
+	def __setitem__(this, i, x):
+		if x := this.transform(x):
+			if isinstance(x, Iterable) and not isinstance(x, str) and not isinstance(i, slice): i = slice(i, i + 1)
+			super().__setitem__(i, x)
+
+	def __iadd__(this, x):
+		return this.extend(x)
+
+	def __add__(this, x):
+		return this.copy().extend(x)
+
+class Arguments(FlatList):
+	def __init__(this, *arguments):
+		for arg in arguments:
+			this.append(arg)
+
+	def set(this, *arguments): this[:] = Arguments(arguments)
+
+	def transform(this, args):
+		if isinstance(args, str): return args.strip()
+		if isinstance(args, Arguments): return args
+		if isinstance(args, Iterable): return Arguments(*args)
+		if args: raise TypeError(f"{args!r} is not iterable or a string")
+
+	def __str__(this): return join(this)
+
+	def split(this): return shlex.split(str(this))
 
 @dataclass
 class Files:
@@ -215,7 +264,7 @@ def supplyExports():
 		for name, export in exports.items():
 			callerFrame.frame.f_globals[name] = export
 
-exports = {export.__name__: export for export in [Files, join, parameter, sh, task]}
+exports = {export.__name__: export for export in [Arguments, Files, Task, join, parameter, sh, task]}
 supplyExports()
 
 tasks: dict[str, Task] = {}
