@@ -1,5 +1,6 @@
 #!/bin/env python
 import builtins
+import functools
 import importlib
 import inspect
 import os
@@ -66,6 +67,9 @@ class Task:
 			return registerTask(*args, [this.fn], kw)
 
 		return this.fn()
+
+	for state in State:
+		vars()[state.name.lower()] = property(functools.partial(lambda this, state: this.state == state, state = state))
 
 def first(iterator):
 	return next(iterator, None)
@@ -169,14 +173,14 @@ def main():
 				print(".bt is corrupt.")
 
 	def run(task: Task, parent: Task = None):
-		if task.state == State.RUNNING: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
-		if task.state != State.NORMAL: return
+		if task.running: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
+		if not task.normal: return
 
 		skip = True
 
 		for dependency in task.dependencies:
 			run(dependency, task)
-			if dependency.state == State.DONE: skip = False
+			if dependency.done: skip = False
 
 		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
 			exit()
@@ -201,7 +205,7 @@ def main():
 			if task.default: run(task)
 
 	for task in tasks.values():
-		if task.state == State.DONE:
+		if task.done:
 			cache[task.name] = task.input
 
 	with open(CACHE, "bw") as file:
