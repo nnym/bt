@@ -176,6 +176,7 @@ def main():
 		if task.running: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
 		if not task.normal: return
 
+		task.state = State.RUNNING
 		skip = True
 
 		for dependency in task.dependencies:
