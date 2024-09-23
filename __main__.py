@@ -38,7 +38,7 @@ class Files:
 			elif isinstance(f, Iterable):
 				for e in f: flatten(e)
 			elif callable(f): flatten(f())
-			else: raise AssertionError(f"({repr(output)}) cannot be converted to a file (is not a string, a list, or callable).")
+			else: raise AssertionError(f"({output!r}) cannot be converted to a file (is not a string, a list, or callable).")
 
 		flatten(files)
 
@@ -79,12 +79,12 @@ def findTask(task: str | Runnable | Task, error = True, convert = True, command 
 		match.force = True
 		return match
 
-	if convert and callable(task): return registerTask(task, named = False)
-	if error: return exit(print(f'No task matched {repr(task)}.'))
+	if convert and callable(task): return registerTask(task, export = False)
+	if error: return exit(print(f'No task matched {task!r}.'))
 
-def registerTask(fn: Runnable, dependencies: list = [], kw = {}, named = True):
+def registerTask(fn: Runnable, dependencies: list = [], kw = {}):
 	t = Task(fn, [findTask(d) for d in dependencies], kw)
-	tasks[t.name if named and t.export != False else t] = t
+	tasks[t.name if t.export else t] = t
 	return t
 
 def task(*args, **kw):
@@ -114,8 +114,8 @@ def main():
 		erred = not print(f"Task {task.name}: {message}." if message else task)
 
 	for task in tasks.values():
-		if not isinstance(task.default, bool): error(task, f"default ({repr(task.default)}) is not a bool")
-		if not isinstance(task.export, bool): error(task, f"export ({repr(task.export)}) is not a bool")
+		if not isinstance(task.default, bool): error(task, f"default ({task.default!r}) is not a bool")
+		if not isinstance(task.export, bool): error(task, f"export ({task.export!r}) is not a bool")
 
 		if task.input:
 			def flatten(inputs, container = None, i = None):
@@ -145,7 +145,7 @@ def main():
 				elif isinstance(output, Iterable):
 					for o in output: flatten(o)
 				elif callable(output): flatten(output())
-				else: error(task, f"({repr(output)}) is not a file (a string, a list, or callable)")
+				else: error(task, f"({output!r}) is not a file (a string, a list, or callable)")
 
 			flatten(task.output)
 
@@ -157,16 +157,16 @@ def main():
 	if erred: return
 
 	started = False
+	cache = {}
 
 	if path.exists(CACHE):
 		with open(CACHE, "br") as file:
 			try:
-				cache = pickle.load(file)
-				assert isinstance(cache, Mapping)
+				c = pickle.load(file)
+				assert isinstance(c, Mapping)
+				cache = c
 			except:
 				print(".bt is corrupt.")
-				cache = {}
-	else: cache = {}
 
 	def run(task: Task, parent: Task = None):
 		if task.state == State.RUNNING: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
@@ -182,8 +182,8 @@ def main():
 			exit()
 
 		if skip and not task.force and task.input == cache.get(task.name, None)\
-		and (task.input or task.outputFiles) and all(os.path.exists(output) for output in task.outputFiles)\
-		and not any(os.path.getmtime(input) > os.path.getmtime(output) for output in task.outputFiles for input in task.inputFiles):
+		and (task.input or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)\
+		and all(path.getmtime(input) <= path.getmtime(output) for output in task.outputFiles for input in task.inputFiles):
 			task.state = State.SKIPPED
 			return
 
@@ -230,7 +230,7 @@ mainPath = path.realpath(sys.argv[0])
 mainDirectory = path.dirname(mainPath)
 
 if __name__ == "__main__":
-	if entry := first(path for path in ["bs", "bs.py"] if os.path.exists(path)):
+	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
 		sys.path.append(mainDirectory if path.isdir(mainPath) else path.dirname(mainDirectory))
 		with open(entry) as script: exec(script.read(), {"bt": exports} | exports)
 	else: exit(print("No build script (bs or bs.py) was found."))
