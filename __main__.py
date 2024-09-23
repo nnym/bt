@@ -106,7 +106,7 @@ class Task:
 		this.default = kw.get("default", False)
 		this.export = kw.get("export", True)
 		this.pure = kw.get("pure", False)
-		this.input = kw.get("input", [])
+		this.input = kw.get("input", None)
 		this.output = kw.get("output", [])
 		this.inputFiles = []
 		this.outputFiles = []
@@ -215,7 +215,7 @@ def main():
 
 				return inputs
 
-			task.input = [flatten(task.input), [os.path.getmtime(input) for input in task.inputFiles]]
+			task.input = [flatten(task.input or 0), [os.path.getmtime(input) for input in task.inputFiles]]
 
 		if task.output:
 			def flatten(output):
@@ -232,7 +232,7 @@ def main():
 			exit()
 
 		if (skip and not task.force and task.input == cache.get(task.name, None)
-		and (task.input or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
+		and (task.input != None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
 			task.state = State.SKIPPED
 			return
 
