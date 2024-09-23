@@ -3,12 +3,14 @@ import builtins
 import importlib
 import inspect
 import os
+import pickle
 import re
 import subprocess
 import sys
 import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from enum import Enum
 from ordered_set import OrderedSet
 from os import path
@@ -17,12 +19,15 @@ from typing import Callable, Optional, Self
 builtins.bt = sys.modules[__name__]
 Runnable = Callable[[], None]
 
+CACHE = ".bt"
+
 class State(Enum):
 	NORMAL = 0
 	RUNNING = 1
 	DONE = 2
 	SKIPPED = 3
 
+@dataclass
 class Files:
 	def __init__(this, *files):
 		this.files = OrderedSet()
@@ -132,7 +137,6 @@ def main():
 				return inputs
 
 			task.input = flatten(task.input)
-			print(task.name, "input", task.input)
 
 		if task.output:
 			def flatten(output):
@@ -144,7 +148,6 @@ def main():
 				else: error(task, f"({repr(output)}) is not a file (a string, a list, or callable)")
 
 			flatten(task.output)
-			print(task.name, "output", task.outputFiles)
 
 	cmdTasks = [findTask(task, command = True) or task for task in args[:split]]
 
@@ -154,6 +157,16 @@ def main():
 	if erred: return
 
 	started = False
+
+	if path.exists(CACHE):
+		with open(CACHE, "br") as file:
+			try:
+				cache = pickle.load(file)
+				assert isinstance(cache, Mapping)
+			except:
+				print(".bt is corrupt.")
+				cache = {}
+	else: cache = {}
 
 	def run(task: Task, parent: Task = None):
 		if task.state == State.RUNNING: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
@@ -168,7 +181,7 @@ def main():
 		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
 			exit()
 
-		if skip and not task.force\
+		if skip and not task.force and task.input == cache.get(task.name, None)\
 		and task.outputFiles and all(os.path.exists(output) for output in task.outputFiles)\
 		and not any(os.path.getmtime(input) > os.path.getmtime(output) for output in task.outputFiles for input in task.inputFiles):
 			task.state = State.SKIPPED
@@ -186,6 +199,13 @@ def main():
 	if not started:
 		for task in tasks.values():
 			if task.default: run(task)
+
+	for task in tasks.values():
+		if task.state == State.DONE:
+			cache[task.name] = task.input
+
+	with open(CACHE, "bw") as file:
+		pickle.dump(cache, file)
 
 def supplyExports():
 	frames = inspect.getouterframes(inspect.currentframe())[1:]
