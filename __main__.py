@@ -260,9 +260,9 @@ def main():
 def supplyExports():
 	frames = inspect.getouterframes(inspect.currentframe())[1:]
 
-	if callerFrame := first(f for f in frames if f.code_context and any(re.search(r"import\s+bt", c) for c in f.code_context)):
+	if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti] in [0x6b, 0x6c]):
 		for name, export in exports.items():
-			callerFrame.frame.f_globals[name] = export
+			importer.frame.f_globals[name] = export
 
 exports = {export.__name__: export for export in [Arguments, Files, Task, join, parameter, sh, task]}
 supplyExports()
