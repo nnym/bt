@@ -161,7 +161,6 @@ def sh(commandLine: str, *args, shell = True, text = True, **kwargs):
 	return subprocess.run(commandLine, *args, shell = shell, text = text, **kwargs)
 
 def main():
-	caller.join()
 	erred = False
 
 	def error(task: Optional[Task], message: str = None):
@@ -284,10 +283,12 @@ if __name__ == "__main__":
 		sys.path.append(mainDirectory if path.isdir(mainPath) else path.dirname(mainDirectory))
 		with open(entry) as script: exec(compile(script.read(), path.abspath(entry), "exec"), {"bt": exports} | exports)
 	else: exit(print("No build script (bs or bs.py) was found."))
-else: os.chdir(mainDirectory)
 
-caller = threading.current_thread()
-thread = threading.Thread(target = main, daemon = False)
-thread.start()
-hook = threading.excepthook
-threading.excepthook = lambda args: args.thread == caller and thread._stop() or hook(args)
+	main()
+else:
+	os.chdir(mainDirectory)
+	caller = threading.current_thread()
+	thread = threading.Thread(target = lambda: (caller.join(), main()), daemon = False)
+	thread.start()
+	hook = threading.excepthook
+	threading.excepthook = lambda args: args.thread == caller and thread._stop() or hook(args)
