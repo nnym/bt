@@ -1,5 +1,7 @@
-This is a **b**uild **t**ool like Make with Python **b**uild **s**cripts.
-Python 3.12 or later is required.
+This is a **b**uild **t**ool like Make with Python **b**uild **s**cripts.<br>
+Python 3.12 is required.<br>
+bt can exist in `PATH` or a project's subdirectory (a Git submodule for example).
+
 ```py
 options = ["-std=c2x", "-trigraphs", "-Ofast"]
 main = "main.c"
@@ -33,6 +35,14 @@ $ bt run
 foo bar
 ```
 
+### Overview
+The execution of bt is always accompanied by a build script.
+bt lets the build script run and define [tasks](#tasks) and do any other setup.
+When the build script exits, bt takes over.
+It looks at the command line arguments that were passed and sets [parameters](#parameter) and determines which tasks to run.
+Before running a task, bt runs all of its [dependencies](#dependencies) which may include tasks and callables.
+Since tasks can take long, bt provides facilities for [caching](#cache) them so that they don't have to run every time.
+
 ### Running
 bt can be run in 2 ways:
 1. As an executable as seen above. The build script has to be in the current directory and named `bs` or `bs.py`.
@@ -56,10 +66,11 @@ foo
 If this build script is named `bs` or `bs.py` instead, then it additionally can be run by `bt` as in the first way.
 
 ### Usage
-bt takes as arguments names of tasks to run and `name=value` pairs which set [parameters](#parameters) for the build.
+bt takes as arguments names of tasks to run and `name=value` pairs which set [parameters](#parameter) for the build.
 
 ### Tasks
-A task can be declared by using `@task`.
+Tasks are functions that can be run on demand from the command line or as [dependencies](#dependencies) of other tasks.<br>
+A function can be declared a task by using the decorator `@task`. The task's name is the function's name.
 ```py
 @task
 def bravo():
@@ -74,7 +85,7 @@ bar
 
 #### Dependencies
 Any non-keyword argument to `task` is considered as a dependency which may be another task or its name or a callable.
-A task does not run until its dependencies are executed.
+Before a task runs, its dependencies run first.
 
 ```py
 @task
@@ -97,14 +108,13 @@ $ bt delta charlie
 ```
 
 #### Defaults
-By default no task is executed so it has to be specified on the command line.
-This can be changed by setting `default` in a `task` call.
+`task`'s parameter `default` controls whether the task runs when the command line has not specified any tasks.
 ```py
 @task(default = True)
 def echo():
 	print("baz")
 ```
-Now bt automatically runs `echo` when the user has not selected any tasks.
+bt automatically runs `echo` when the user has not selected any tasks.
 ```sh
 $ bt
 > echo
@@ -124,7 +134,7 @@ $ bt foxtrot
 No task matched 'foxtrot'.
 ```
 
-#### Caching
+#### Cache
 Inputs and outputs are objects that determine whether a task should be skipped.
 Inputs may be anything and outputs are only files.
 They can be modified through the options `input` and `output`.
@@ -133,15 +143,18 @@ If a task does not have inputs or outputs, then it is never skipped.
 A task that has inputs or outputs is skipped only if its inputs have not changed, its outputs all exist, and its dependencies all either are [pure](#pure-tasks) or have been skipped.
 
 Before bt exits, the `input` of every task that ran is written to a cache.
-When a task is to run again, its `input` is checked against that in the cache: if they differ, then they have changed.
+When a task is about to run, its `input` is checked against that in the cache: if they differ, then they have changed and the task runs.
 
 File modification is tracked by mtime. If an input file does not exist, then an error is raised.
 
+#### Input
 ```py
 @task(input = "baz")
 def golf(): pass
 ```
-This task will run only once ever: Since `input` has not been cached before the first run, `golf` is run once. Thereafter whenever the task is about to run, since `input` does not change, it matches the cached version and `golf` is skipped. Therefore `golf` runs only once.
+This task will run only once ever: Since `input` has not been cached before the first run, `golf` is run once.
+Thereafter whenever the task is about to run, since `input` does not change, it matches the cached version and `golf` is skipped.
+Therefore `golf` runs only once.
 ```sh
 $ bt golf
 > golf
@@ -163,6 +176,7 @@ $ bt hotel
 > hotel
 ```
 
+#### Output
 ```py
 @task(output = "foo")
 def india():
@@ -175,28 +189,58 @@ $ bt india
 $ bt india
 ```
 
+#### Ignoring the cache
+A task can be forced to run by passing as an argument its name suffixed by `!`.
+```py
+@task(default = True, input = 0)
+def juliett(): pass
+
+@task(juliett, input = 0)
+def kilo(): pass
+
+@task(kilo, input = 0)
+def lima(): pass
+```
+```sh
+$ bt lima
+> juliett
+
+> kilo
+
+> lima
+
+$ bt kilo
+$ bt kilo!
+> kilo
+```
+
 #### Pure tasks
 Pure tasks act like they don't have side effects: their execution does not prevent tasks that depend on them from being skipped.
 
 ```py
 @task(pure = True)
-def juliett(): pass
+def mike(): pass
 
-@task(juliett, input = 0)
-def kilo(): pass
+@task(mike, input = 0)
+def november(): pass
 ```
-When `kilo` is called after the first run, it will be skipped but `juliett` will run.
+When `november` is called after the first run, it will be skipped but `mike` will run.
 ```sh
-$ bt kilo
-> juliett
+$ bt november
+> mike
 
-> kilo
+> november
 
-$ bt kilo
-> juliett
+$ bt november
+> mike
 ```
 
-### Parameters
+### API
+Importing or running bt gives a build script direct access to module `bt`,
+classes [`Arguments`](#arguments) and [`Files`](#files),
+and functions [`parameter`](#parameter), [`sh`](#sh), and `task`.
+
+#### `parameter`
 A parameter `name` can be set to `"value"` by passing `name=value` in the command line.
 
 The function `parameter(name, default = None, require = False)` allows the build script to read parameter values.
@@ -204,7 +248,7 @@ If the parameter is not set, then
 - if `require`, then an error message is printed and the build is terminated
 - otherwise `default` is returned.
 
-### Command execution
+#### `sh`
 bt exports function `sh` for running shell commands.
 `sh` forwards its parameters to `subprocess.run` and sets `shell = True` and `text = True` by default.
 If the command line is an [`Arguments`](#arguments), then it is converted into a string.
@@ -212,7 +256,7 @@ If the command line is an [`Arguments`](#arguments), then it is converted into a
 sh("tr ab ba", input = "abr abz")
 ```
 
-### `Arguments`
+#### `Arguments`
 `Arguments` is a `list` derivative that stores a full or partial command line.
 It flattens every added `Iterable`. Supported element types are `str` and `Iterable`.
 Its string representation joins its elements with spaces.
