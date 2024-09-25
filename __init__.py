@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -277,7 +278,16 @@ mainDirectory = path.dirname(mainPath)
 if "MAIN" in globals():
 	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
 		sys.path.append(mainDirectory if path.isdir(mainPath) else path.dirname(mainDirectory))
-		with open(entry) as script: exec(compile(script.read(), path.abspath(entry), "exec"), exports)
+		entry = path.abspath(entry)
+		with open(entry) as source: script = compile(source.read(), entry, "exec")
+
+		try:
+			exec(script, exports)
+		except BaseException as e:
+			tb = e.__traceback__
+			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
+			if tb: e.__traceback__ = tb
+			traceback.print_exc()
 	else: exit(print("No build script (bs or bs.py) was found."))
 
 	main()
