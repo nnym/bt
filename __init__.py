@@ -20,6 +20,9 @@ Runnable = Callable[[], None]
 
 CACHE = ".bt"
 
+bt = sys.modules["bt"]
+assert bt == sys.modules[__name__]
+
 class State(Enum):
 	NORMAL = 0
 	RUNNING = 1
@@ -254,7 +257,7 @@ def main():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
-exports = {export.__name__: export for export in [sys.modules["bt"], Arguments, Files, Task, join, parameter, sh, task]}
+exports = {export.__name__: export for export in [bt, Arguments, Files, Task, join, parameter, sh, task]}
 frames = inspect.getouterframes(inspect.currentframe())[1:]
 
 if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti] in [0x6b, 0x6c]):
