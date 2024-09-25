@@ -185,7 +185,7 @@ def main():
 				assert isinstance(c, Mapping)
 				cache = c
 			except Exception as e:
-				print(".bt is corrupt.")
+				print(CACHE + " is corrupt.")
 				print(e)
 
 	def run(task: Task, parent: Task = None):
@@ -266,9 +266,7 @@ parameters: dict[str, str] = {}
 
 args = sorted(sys.argv[1:], key = lambda a: "=" in a)
 split = next((i for i, a in enumerate(args) if "=" in a), len(args))
-
-for arg in args[split:]:
-	parameters.update([arg.split("=", 2)])
+parameters.update(arg.split("=", 2) for arg in args[split:])
 
 mainPath = path.realpath(sys.argv[0])
 mainDirectory = path.dirname(mainPath)
