@@ -276,7 +276,7 @@ mainDirectory = path.dirname(mainPath)
 if "MAIN" in globals():
 	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
 		sys.path.append(mainDirectory if path.isdir(mainPath) else path.dirname(mainDirectory))
-		with open(entry) as script: exec(compile(script.read(), path.abspath(entry), "exec"), {"bt": exports} | exports)
+		with open(entry) as script: exec(compile(script.read(), path.abspath(entry), "exec"), exports)
 	else: exit(print("No build script (bs or bs.py) was found."))
 
 	main()
