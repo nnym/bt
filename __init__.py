@@ -286,5 +286,4 @@ else:
 	caller = threading.current_thread()
 	thread = threading.Thread(target = lambda: (caller.join(), main()), daemon = False)
 	thread.start()
-	hook = threading.excepthook
-	threading.excepthook = lambda args: args.thread == caller and thread._stop() or hook(args)
+	hook, threading.excepthook = threading.excepthook, lambda args: thread._stop() if args.thread == caller else hook(args)
