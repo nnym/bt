@@ -214,6 +214,26 @@ $ bt kilo!
 > kilo
 ```
 
+Passing `!` forces all initial tasks to run.
+```sh
+$ bt !
+> juliett
+
+$ bt kilo !
+> kilo
+```
+
+Passing `!` twice forces all required tasks to run.
+```sh
+$ bt ! !
+> juliett
+
+$ bt kilo ! !
+> juliett
+
+> kilo
+```
+
 #### Pure tasks
 Pure tasks act like they don't have side effects: their execution does not prevent tasks that depend on them from being skipped.
 

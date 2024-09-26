@@ -192,7 +192,7 @@ def main():
 				print(CACHE + " is corrupt.")
 				print(e)
 
-	def run(task: Task, parent: Task = None):
+	def run(task: Task, parent: Task = None, initial = False):
 		if task.running: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
 		if not task.normal: return
 
@@ -233,7 +233,7 @@ def main():
 		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
 			exit()
 
-		if (skip and not task.force and task.input == cache.get(task.name, None)
+		if (skip and not (task.force or force == 1 and initial or force >= 2) and task.input == cache.get(task.name, None)
 		and (task.input != None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
 			task.state = State.SKIPPED
 			return
@@ -246,10 +246,10 @@ def main():
 		task.state = State.DONE
 
 	if cmdTasks:
-		for task in cmdTasks: run(task)
+		for task in cmdTasks: run(task, initial = True)
 	else:
 		for task in tasks.values():
-			if task.default: run(task)
+			if task.default: run(task, initial = True)
 
 	for task in tasks.values():
 		if task.done:
@@ -268,7 +268,8 @@ if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti
 tasks: dict[str, Task] = {}
 parameters: dict[str, str] = {}
 
-args = sorted(sys.argv[1:], key = lambda a: "=" in a)
+args = sorted([arg for arg in sys.argv[1:] if arg != "!"], key = lambda a: "=" in a)
+force = len(sys.argv) - 1 - len(args)
 split = next((i for i, a in enumerate(args) if "=" in a), len(args))
 parameters.update(arg.split("=", 2) for arg in args[split:])
 
