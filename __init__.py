@@ -131,10 +131,10 @@ def first[A](iterator: Iterator[A]) -> Optional[A]:
 def group[A, B](iterable: Iterable[A], key: Callable[[A], B]) -> dict[list[B]]:
 	return {it[0]: list(it[1]) for it in itertools.groupby(sorted(iterable, key = key), key)}
 
-def findTask(task: str | Runnable | Task, error = True, convert = True, command = False) -> Optional[Task]:
-	if isinstance(task, Task): return task
+def findTask(task: str | Runnable | Task, error = True, command = False) -> Optional[Task]:
+	if callable(task): return task
 
-	if match := first(t for t in tasks.values() if task in [t, t.fn, t.name] and (not command or t.export)): return match
+	if match := first(t for t in tasks.values() if task == t.name and (not command or t.export)): return match
 
 	if match := first(t for t in tasks.values() if task == t.name + "!" and (not command or t.export)):
 		match.force = True
@@ -216,8 +216,10 @@ def main():
 		skip = True
 
 		for dependency in task.dependencies:
-			run(dependency, task)
-			if dependency.done and not dependency.pure: skip = False
+			if isinstance(dependency, Task):
+				run(dependency, task)
+				if dependency.done and not dependency.pure: skip = False
+			else: dependency()
 
 		if task.input:
 			def flatten(inputs):
