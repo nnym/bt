@@ -16,9 +16,9 @@ from dataclasses import dataclass
 from enum import Enum
 from ordered_set import OrderedSet
 from os import path
-from typing import Callable, Optional, Self
+from typing import Any, Callable, Optional, Self
 
-Runnable = Callable[[], None]
+Runnable = Callable[[], Any]
 
 CACHE = ".bt"
 
@@ -270,14 +270,14 @@ def main():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
+tasks: dict[str, Task] = {}
+
 exports = {export.__name__: export for export in [bt, Arguments, Files, Task, join, parameter, sh, task]}
 frames = inspect.getouterframes(inspect.currentframe())[1:]
 
 if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti] in [0x6b, 0x6c]):
 	for name, export in exports.items():
 		importer.frame.f_globals[name] = export
-
-tasks: dict[str, Task] = {}
 
 args0 = sys.argv[1:]
 
