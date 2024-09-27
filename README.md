@@ -83,6 +83,45 @@ $ bt bravo
 bar
 ```
 
+### Task arguments
+A sequence of command line arguments can be passed to a task by prefixing it by `--`.
+The last task in the command line or the [default](#defaults) task that is declared last receives them.
+A task can accept or require them as parameters. The arguments must match the task's arity.
+Tasks may not have non-default keyword-only parameters.
+
+This task accepts any number of arguments.
+```py
+@task
+def oscar(*args):
+	print(args)
+```
+```sh
+$ bt oscar -- foo -- bar
+> oscar
+('foo', '--', 'bar')
+```
+
+This task requires exactly 2 arguments.
+```py
+@task
+def papa(a, b):
+	print(a, "|", b)
+```
+```sh
+$ bt papa
+Task papa: received 0 arguments instead of 2.
+$ bt papa --
+Task papa: received 0 arguments instead of 2.
+$ bt papa -- foo
+Task papa: received 1 argument instead of 2.
+$ bt papa -- foo bar baz
+Task papa: received 3 arguments instead of 2.
+
+$ bt papa -- foo bar
+> papa
+foo | bar
+```
+
 #### Dependencies
 Any non-keyword argument to `task` is considered as a dependency which may be another task or its name or a callable.
 Before a task runs, its dependencies run first.

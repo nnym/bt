@@ -1,6 +1,7 @@
 import functools
 import importlib
 import inspect
+import itertools
 import os
 import pickle
 import re
@@ -10,7 +11,7 @@ import sys
 import threading
 import time
 import traceback
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from ordered_set import OrderedSet
@@ -101,9 +102,11 @@ class Task:
 	def __init__(this, task: Runnable, dependencies: list[Self], kw: dict[str, object]):
 		this.name = task.__name__
 		this.fn = task
+		this.spec = inspect.getfullargspec(task)
 		this.dependencies = dependencies
 		this.state = State.NORMAL
 		this.force = False
+		this.args = []
 		this.default = kw.get("default", False)
 		this.export = kw.get("export", True)
 		this.pure = kw.get("pure", False)
@@ -122,8 +125,11 @@ class Task:
 	for state in State:
 		vars()[state.name.lower()] = property(functools.partial(lambda this, state: this.state == state, state = state))
 
-def first(iterator):
+def first[A](iterator: Iterator[A]) -> Optional[A]:
 	return next(iterator, None)
+
+def group[A, B](iterable: Iterable[A], key: Callable[[A], B]) -> dict[list[B]]:
+	return {it[0]: list(it[1]) for it in itertools.groupby(sorted(iterable, key = key), key)}
 
 def findTask(task: str | Runnable | Task, error = True, convert = True, command = False) -> Optional[Task]:
 	if isinstance(task, Task): return task
@@ -171,10 +177,20 @@ def main():
 	for task in tasks.values():
 		if not isinstance(task.default, bool): error(task, f"default ({task.default!r}) is not a bool")
 		if not isinstance(task.export, bool): error(task, f"export ({task.export!r}) is not a bool")
+		if len(task.spec.kwonlyargs or []) != len(task.spec.kwonlydefaults or []): error(task, f"can't run with a non-default keyword-only parameter")
 
-	cmdTasks = [findTask(task, command = True) or task for task in args[:split]]
+	initialTasks = [findTask(task, command = True) or task for task in cmdTasks] or [task for task in tasks.values() if task.default]
+	if initialTasks: initialTasks[-1].args = args
 
-	if [not error(f'"{task}" does not match an exported task') for task in cmdTasks if isinstance(task, str)]:
+	for task in initialTasks:
+		arity = len(task.spec.args)
+		min = arity - len(task.spec.defaults or [])
+		count = len(task.args)
+
+		if count < arity or count > arity and not task.spec.varargs:
+			error(task, f"received {count} argument{["s", ""][count == 1]} instead of {arity if min == arity else f"{min}-{arity}"}")
+
+	if [not error(f'"{task}" does not match an exported task') for task in initialTasks if isinstance(task, str)]:
 		print("Exported tasks are listed below.", *(name for name, task in tasks.items() if isinstance(name, str)), sep = "\n")
 
 	if erred: return
@@ -242,14 +258,10 @@ def main():
 		if started: print()
 		else: started = True
 		print(">", task.name)
-		task.fn()
+		task.fn(*task.args)
 		task.state = State.DONE
 
-	if cmdTasks:
-		for task in cmdTasks: run(task, initial = True)
-	else:
-		for task in tasks.values():
-			if task.default: run(task, initial = True)
+	for task in initialTasks: run(task, initial = True)
 
 	for task in tasks.values():
 		if task.done:
@@ -266,12 +278,18 @@ if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti
 		importer.frame.f_globals[name] = export
 
 tasks: dict[str, Task] = {}
-parameters: dict[str, str] = {}
 
-args = sorted([arg for arg in sys.argv[1:] if arg != "!"], key = lambda a: "=" in a)
-force = len(sys.argv) - 1 - len(args)
-split = next((i for i, a in enumerate(args) if "=" in a), len(args))
-parameters.update(arg.split("=", 2) for arg in args[split:])
+args0 = sys.argv[1:]
+
+if "--" in args0 and ~(split := args0.index("--")):
+	args0, args = args0[:split], args0[split + 1:]
+else: args = []
+
+args1 = group((arg for arg in args0 if arg != "!"), lambda a: "=" in a)
+cmdTasks = args1.get(False, [])
+parameters = args1.get(True, []) 
+parameters: dict[str, str] = dict(arg.split("=", 2) for arg in parameters)
+force = len(args0) - len(args1)
 
 mainPath = path.realpath(sys.argv[0])
 mainDirectory = path.dirname(mainPath)
