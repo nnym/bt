@@ -308,7 +308,7 @@ if "MAIN" in globals():
 			tb = e.__traceback__
 			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
 			if tb: e.__traceback__ = tb
-			traceback.print_exc()
+			exit(traceback.print_exc())
 	else: exit(print("No build script (bs or bs.py) was found."))
 
 	main()
