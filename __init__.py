@@ -75,9 +75,9 @@ class Arguments(FlatList):
 		if isinstance(args, Iterable): return Arguments(*args)
 		if args: raise TypeError(f"{args!r} is not iterable or a string")
 
-	def __str__(this): return join(this)
-
 	def split(this): return shlex.split(str(this))
+
+	def __str__(this): return " ".join(this)
 
 @dataclass
 class Files:
@@ -159,9 +159,6 @@ def parameter(name: str, default = None, require = False):
 	value = parameters.get(name, default)
 	if not value and require: exit(print(f'Parameter "{name}" must be set.'))
 	return value
-
-def join(args: Iterable[str]):
-	return " ".join(args)
 
 def sh(commandLine: str, *args, shell = True, text = True, **kwargs):
 	if isinstance(commandLine, Arguments): commandLine = str(commandLine)
@@ -256,10 +253,12 @@ def main():
 			task.state = State.SKIPPED
 			return
 
-		nonlocal started
-		if started: print()
-		else: started = True
-		print(">", task.name)
+		if debug:
+			nonlocal started
+			if started: print()
+			else: started = True
+			print(">", task.name)
+
 		task.fn(*task.args)
 		task.state = State.DONE
 
@@ -273,8 +272,9 @@ def main():
 		pickle.dump(cache, file)
 
 tasks: dict[str, Task] = {}
+debug = False
 
-exports = {export.__name__: export for export in [bt, Arguments, Files, Task, join, parameter, sh, task]}
+exports = {export.__name__: export for export in [bt, Arguments, Files, Task, parameter, sh, task]}
 frames = inspect.getouterframes(inspect.currentframe())[1:]
 
 if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti] in [0x6b, 0x6c]):

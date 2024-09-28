@@ -3,6 +3,8 @@ Python 3.12 is required.<br>
 bt can exist in `PATH` or a project's subdirectory (a Git submodule for example).
 
 ```py
+bt.debug = True
+
 options = ["-std=c2x", "-trigraphs", "-Ofast"]
 main = "main.c"
 
@@ -54,6 +56,8 @@ The example below assumes that bt is cloned in the current directory.
 #!/bin/env python
 import bt
 
+bt.debug = True
+
 @task
 def alfa():
 	print("foo")
@@ -71,6 +75,9 @@ bt takes as arguments names of tasks to run and `name=value` pairs which set [pa
 ### Tasks
 Tasks are functions that can be run on demand from the command line or as [dependencies](#dependencies) of other tasks.<br>
 A function can be declared a task by using the decorator `@task`. The task's name is the function's name.
+
+[`bt.debug = True`](#debug) is implicit in all of the examples below.
+
 ```py
 @task
 def bravo():
@@ -295,9 +302,22 @@ $ bt november
 ```
 
 ### API
-Importing or running bt gives a build script direct access to module `bt`,
-classes [`Arguments`](#arguments) and [`Files`](#files),
-and functions [`parameter`](#parameter), [`sh`](#sh), and `task`.
+Importing or running bt gives a build script direct access to
+- module `bt` containing
+  - variable [`debug`](#debug)
+- classes
+  - [`Arguments`](#arguments)
+  - [`Files`](#files)
+  - `Task`
+- functions
+  - [`parameter`](#parameter)
+  - [`sh`](#sh)
+  - [`task`](#tasks).
+
+If a name is not listed here, then it should be assumed to be internal.
+
+#### `debug`
+This flag determines whether to print debugging information. Currently only names of tasks before they run are printed.
 
 #### `parameter`
 A parameter `name` can be set to `"value"` by passing `name=value` in the command line.
