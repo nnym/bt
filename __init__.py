@@ -22,8 +22,8 @@ Runnable = Callable[[], Any]
 
 CACHE = ".bt"
 
+assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "{bt}"'
 bt = sys.modules["bt"]
-assert bt == sys.modules[__name__]
 
 class State(Enum):
 	NORMAL = 0
