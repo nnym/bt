@@ -140,9 +140,10 @@ def group[A, B](iterable: Iterable[A], key: Callable[[A], B]) -> dict[list[B]]:
 def findTask(task: str | Runnable | Task, error = True, command = False) -> Optional[Task]:
 	if callable(task): return task
 
-	if match := first(t for t in tasks.values() if task == t.name and (not command or t.export)): return match
+	if (match := tasks.get(task, None)) and (match.export or not command):
+		return match
 
-	if match := first(t for t in tasks.values() if task == t.name + "!" and (not command or t.export)):
+	if task[-1:] == "!" and (match := tasks.get(task[:-1], None)) and (match.export or not command):
 		match.force = True
 		return match
 
@@ -150,7 +151,7 @@ def findTask(task: str | Runnable | Task, error = True, command = False) -> Opti
 
 def registerTask(fn: Runnable, dependencies: list = [], kw = {}):
 	task = Task(fn, [findTask(d) for d in dependencies], kw)
-	tasks[task.name if task.export else task] = task
+	tasks[task.name] = task
 	return task
 
 def task(*args, **kw):
