@@ -6,22 +6,23 @@ bt can exist in `PATH` or a project's subdirectory (a Git submodule for example)
 bt.debug = True
 
 options = ["-std=c2x", "-trigraphs", "-Ofast"]
-main = "main.c"
+main = "main"
+mainc = main + ".c"
 
-@task(export = False, output = main)
+@task(export = False, output = mainc)
 def generateSource():
-	sh(f"""echo '
-		#include <stdio.h>
-		int main() {'{puts("foo bar");}'}' > {main}
-	""")
+	sh(f"""cat > {mainc} << END
+	#include <stdio.h>
+	int main() {'{puts("foo bar");}'}
+END""")
 
 @task(generateSource, default = True, output = main)
 def compile():
-	sh(Arguments("gcc -o main", options, generateSource.outputFiles))
+	sh(Arguments("gcc -o", main, options, generateSource.outputFiles))
 
 @task(compile)
 def run():
-	sh("./main")
+	sh("./" + main)
 ```
 ```sh
 $ bt run
@@ -45,29 +46,46 @@ It looks at the command line arguments that were passed and sets [parameters](#p
 Before running a task, bt runs all of its [dependencies](#dependencies) which may include tasks and callables.
 Since tasks can take long, bt provides facilities for [caching](#cache) them so that they don't have to run every time.
 
-### Running
-bt can be run in 2 ways:
-1. As an executable as seen above. The build script has to be in the current directory and named `bs` or `bs.py`.
-2. As a library. In this case the build script is the main module and imports bt. bt starts when the build script ends.
-This option allows people that don't have bt installed to use it.
-The example below assumes that bt is cloned in the current directory.
-```py
-# ./build
+### Setup
+bt can be run as an executable (as above) or a library.
+
+#### Executable
+The executable is [`__main__.py`](__main__.py); a symbolic link or a shell alias can be used.
+The build script has to be in the current directory and named `bs` or `bs.py`.
+```sh
+git clone https://github.com/nnym/bt
+alias bt="`realpath bt/__main__.py`"
+mkdir foo
+cd foo
+cat > bs << END
+@task
+def alfa(): print("bar")
+END
+bt alfa # bar
+```
+
+#### Library
+The build script—which may be named anything—is the main module and imports bt as a package in the same directory.
+bt starts when the build script ends.
+
+This option allows bt to be used without setup.
+
+```sh
+mkdir foo
+cd foo
+git init
+git submodule add https://github.com/nnym/bt
+cat > build.py << END
 #!/bin/env python
 import bt
 
-bt.debug = True
-
 @task
-def alfa():
-	print("foo")
+def quebec(): print("bar")
+END
+chmod +x build.py
+./build.py quebec # bar
 ```
-```sh
-$ ./build alfa
-> alfa
-foo
-```
-If this build script is named `bs` or `bs.py` instead, then it additionally can be run by `bt` as in the first way.
+If the build script is named `bs` or `bs.py` instead, then it additionally can be run by the executable as in the first way.
 
 ### Usage
 bt takes as arguments names of tasks to run and `name=value` pairs which set [parameters](#parameter) for the build.
@@ -90,7 +108,7 @@ $ bt bravo
 bar
 ```
 
-### Task arguments
+#### Task arguments
 A sequence of command line arguments can be passed to a task by prefixing it by `--`.
 The last task in the command line or the [default](#defaults) task that is declared last receives them.
 A task can accept or require them as parameters. The arguments must match the task's arity.
