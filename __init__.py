@@ -18,12 +18,10 @@ from ordered_set import OrderedSet
 from os import path
 from typing import Any, Callable, Optional, Self
 
-Runnable = Callable[[], Any]
-
-CACHE = ".bt"
-
 assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "{bt}"'
 bt = sys.modules["bt"]
+
+Runnable = Callable[[], Any]
 
 class State(Enum):
 	NORMAL = 0
@@ -70,8 +68,7 @@ class FlatList(list):
 
 class Arguments(FlatList):
 	def __init__(this, *arguments):
-		for arg in arguments:
-			this.append(arg)
+		for arg in arguments: this.append(arg)
 
 	def set(this, *arguments): this[:] = Arguments(arguments)
 
@@ -147,7 +144,7 @@ def findTask(task: str | Runnable | Task, error = True, command = False) -> Opti
 		match.force = True
 		return match
 
-	if error: return exit(print(f'No task matched {task!r}.'))
+	if error: exit(print(f'No task matched {task!r}.'))
 
 def registerTask(fn: Runnable, dependencies: list = [], kw = {}):
 	task = Task(fn, [findTask(d) for d in dependencies], kw)
@@ -270,12 +267,12 @@ def main():
 
 	for task in initialTasks: run(task, initial = True)
 
-	for task in tasks.values():
-		if task.done:
-			cache[task.name] = task.input
+	cache.update((task.name, task.input) for task in tasks.values() if task.done)
 
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
+
+CACHE = ".bt"
 
 tasks: dict[str, Task] = {}
 debug = False
@@ -308,8 +305,7 @@ if "MAIN" in globals():
 		entry = path.abspath(entry)
 		with open(entry) as source: script = compile(source.read(), entry, "exec")
 
-		try:
-			exec(script, exports)
+		try: exec(script, exports)
 		except Exception as e:
 			tb = e.__traceback__
 			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
