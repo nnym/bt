@@ -32,28 +32,34 @@ class State(Enum):
 	SKIPPED = 3
 
 class FlatList(list):
-	def transform(this, x, single, multiple):
+	@staticmethod
+	def isIterable(x): return isinstance(x, Iterable) and not isinstance(x, str)
+
+	def transform(this, x):
 		return x
 
 	def append(this, x):
-		x = this.transform(x)
-		if isinstance(x, Iterable) and not isinstance(x, str): this.extend(x)
-		elif x: super().append(x)
+		if x := this.transform(x):
+			if this.isIterable(x): this.extend(x)
+			elif x: super().append(x)
 
 	def insert(this, i, x):
-		x = this.transform(x)
-		if isinstance(x, Iterable) and not isinstance(x, str): this[i:i] = x
-		elif x: super().insert(i, x)
+		if x := this.transform(x):
+			if this.isIterable(x): this[i:i] = x
+			elif x: super().insert(i, x)
 
 	def extend(this, x):
 		if x := this.transform(x):
-			assert isinstance(x, Iterable), f"{x!r} is not iterable."
+			assert this.isIterable(x), f"{x!r} is a string or not iterable."
 			super().extend(x)
 		return this
 
 	def __setitem__(this, i, x):
 		if x := this.transform(x):
-			if isinstance(x, Iterable) and not isinstance(x, str) and not isinstance(i, slice): i = slice(i, i + 1)
+			if isinstance(x, Iterable):
+				if not isinstance(i, slice): i = slice(i, i + 1)
+				if isinstance(x, str): x = [x]
+
 			super().__setitem__(i, x)
 
 	def __iadd__(this, x):
