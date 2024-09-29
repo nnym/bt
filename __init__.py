@@ -102,7 +102,8 @@ class Files:
 	def __repr__(this): return f"Files({", ".join(this.files)})"
 
 class Task:
-	def __init__(this, task: Runnable, dependencies: list[Self], kw: dict[str, object]):
+	def __init__(this, task: Runnable, dependencies: list[Self], options: dict[str, object]):
+		vars(this).update(options)
 		this.name = task.__name__
 		this.fn = task
 		this.spec = inspect.getfullargspec(task)
@@ -110,23 +111,25 @@ class Task:
 		this.state = State.NORMAL
 		this.force = False
 		this.args = []
-		this.default = kw.get("default", False)
-		this.export = kw.get("export", True)
-		this.pure = kw.get("pure", False)
-		this.input = kw.get("input", None)
-		this.output = kw.get("output", [])
 		this.inputFiles = []
 		this.outputFiles = []
 
 	def __call__(this, *args, **kw):
 		if not kw and len(args) == 1 and callable(args[0]):
 			tasks.pop(this.name)
-			return registerTask(*args, [this.fn], kw)
+			this.dependencies.insert(0, this.fn)
+			this.fn = args[0]
+			this.name = this.fn.__name__
+			tasks[this.name] = this
+			return this
 
 		return this.fn()
 
 	for state in State:
 		vars()[state.name.lower()] = property(functools.partial(lambda this, state: this.state == state, state = state))
+
+Output = str | Files
+Output |= Iterable[Output]
 
 def first[A](iterator: Iterator[A]) -> Optional[A]:
 	return next(iterator, None)
@@ -146,16 +149,19 @@ def findTask(task: str | Runnable | Task, error = True, command = False) -> Opti
 
 	if error: exit(print(f'No task matched {task!r}.'))
 
-def registerTask(fn: Runnable, dependencies: list = [], kw = {}):
-	task = Task(fn, [findTask(d) for d in dependencies], kw)
+def registerTask(fn: Runnable, dependencies: Iterable, options):
+	task = Task(fn, [findTask(d) for d in dependencies], options)
 	tasks[task.name] = task
 	return task
 
-def task(*args, **kw):
-	if kw or len(args) != 1 or not callable(args[0]) or isinstance(args[0], Task):
-		return lambda fn: registerTask(fn, args, kw)
+def task(*args, default = False, export = True, pure = False, input: Optional[Any] = None, output: Output = []):
+	options = locals().copy()
+	options.pop("args")
 
-	return registerTask(*args, [], kw)
+	if args and callable(args[0]) and not isinstance(args[0], Task):
+		return registerTask(args[0], args[1:], options)
+
+	return lambda fn: registerTask(fn, args, options)
 
 def parameter(name: str, default = None, require = False):
 	assert isinstance(name, str), f"Parameter name ({name!r}) must be a string."
