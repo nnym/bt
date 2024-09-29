@@ -319,10 +319,27 @@ $ bt november
 > mike
 ```
 
+#### Name
+A task can be given a name different from that of its function by using the option `name`.
+```py
+for n in range(100):
+	@task(name = str(n))
+	def romeo():
+		n = int(bt.current.name)
+		print(f"{n} * {n} = {n * n}")
+```
+This will generate 100 tasks with the numbers 0-99 as their names.
+```sh
+$ bt 37
+> 37
+37 * 37 = 1369
+```
+
 ### API
 Importing or running bt gives a build script direct access to
 - module `bt` containing
   - variable [`debug`](#debug)
+  - variable [`current`](#current)
 - classes
   - [`Arguments`](#arguments)
   - [`Files`](#files)
@@ -336,6 +353,9 @@ If a name is not listed here, then it should be assumed to be internal.
 
 #### `debug`
 This flag determines whether to print debugging information. Currently only names of tasks before they run are printed.
+
+#### `current`
+This variable stores the task that is currently running.
 
 #### `parameter`
 A parameter `name` can be set to `"value"` by passing `name=value` in the command line.

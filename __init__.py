@@ -104,7 +104,8 @@ class Files:
 class Task:
 	def __init__(this, task: Runnable, dependencies: list[Self], options: dict[str, object]):
 		vars(this).update(options)
-		this.name = task.__name__
+		this.name0 = this.name
+		if not this.name: this.name = task.__name__
 		this.fn = task
 		this.spec = inspect.getfullargspec(task)
 		this.dependencies = dependencies
@@ -119,7 +120,7 @@ class Task:
 			tasks.pop(this.name)
 			this.dependencies.insert(0, this.fn)
 			this.fn = args[0]
-			this.name = this.fn.__name__
+			if not this.name0: this.name = this.fn.__name__
 			tasks[this.name] = this
 			return this
 
@@ -154,7 +155,7 @@ def registerTask(fn: Runnable, dependencies: Iterable, options):
 	tasks[task.name] = task
 	return task
 
-def task(*args, default = False, export = True, pure = False, input: Optional[Any] = None, output: Output = []):
+def task(*args, name: str = None, default = False, export = True, pure = False, input: Optional[Any] = None, output: Output = []):
 	options = locals().copy()
 	options.pop("args")
 
@@ -268,6 +269,8 @@ def main():
 			else: started = True
 			print(">", task.name)
 
+		global current
+		current = task
 		task.fn(*task.args)
 		task.state = State.DONE
 
@@ -280,8 +283,9 @@ def main():
 
 CACHE = ".bt"
 
-tasks: dict[str, Task] = {}
 debug = False
+tasks: dict[str, Task] = {}
+current: Task = None
 
 exports = {export.__name__: export for export in [bt, Arguments, Files, Task, parameter, sh, task]}
 frames = inspect.getouterframes(inspect.currentframe())[1:]
