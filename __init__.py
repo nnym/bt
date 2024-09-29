@@ -140,7 +140,6 @@ def findTask(task: str | Runnable | Task, error = True, command = False) -> Opti
 		match.force = True
 		return match
 
-	if convert and callable(task): return registerTask(task, kw = {"export": False, "pure": True})
 	if error: return exit(print(f'No task matched {task!r}.'))
 
 def registerTask(fn: Runnable, dependencies: list = [], kw = {}):
