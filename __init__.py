@@ -310,7 +310,7 @@ if "MAIN" in globals():
 
 		try:
 			exec(script, exports)
-		except BaseException as e:
+		except Exception as e:
 			tb = e.__traceback__
 			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
 			if tb: e.__traceback__ = tb
