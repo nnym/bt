@@ -18,7 +18,7 @@ from ordered_set import OrderedSet
 from os import path
 from typing import Any, Callable, Optional, Self
 
-assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "{bt}"'
+assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
 bt = sys.modules["bt"]
 
 Runnable = Callable[[], Any]
