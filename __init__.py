@@ -110,7 +110,7 @@ class Task:
 	def __init__(this, task: Runnable, dependencies: list[Self], options: dict[str, object]):
 		vars(this).update(options)
 		this.name0 = this.name
-		if not this.name: this.name = task.__name__
+		if this.name is None: this.name = getattr(task, "__name__", f"<{len(tasks)}>")
 		this.fn = task
 		this.spec = inspect.getfullargspec(task)
 		this.dependencies = dependencies
@@ -125,7 +125,7 @@ class Task:
 			tasks.pop(this.name)
 			this.dependencies.insert(0, this.fn)
 			this.fn = args[0]
-			if not this.name0: this.name = this.fn.__name__
+			if this.name0 is None: this.name = getattr(this.fn, "__name__", f"<{len(tasks)}>")
 			tasks[this.name] = this
 			return this
 
