@@ -36,6 +36,11 @@ class FlatList(list):
 	def transform(this, x):
 		return x
 
+	def copy(this):
+		copy = type(this)()
+		copy += this
+		return copy
+
 	def append(this, x):
 		if x := this.transform(x):
 			if this.isIterable(x): this.extend(x)
