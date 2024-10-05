@@ -110,9 +110,7 @@ class Task:
 	def __init__(this, task: Runnable, dependencies: list[Self], options: dict[str, object]):
 		vars(this).update(options)
 		this.name0 = this.name
-		if this.name is None: this.name = getattr(task, "__name__", f"<{len(tasks)}>")
-		this.fn = task
-		this.spec = inspect.getfullargspec(task)
+		this.setFunction(task)
 		this.dependencies = dependencies
 		this.state = State.NORMAL
 		this.force = False
@@ -120,16 +118,20 @@ class Task:
 		this.inputFiles = []
 		this.outputFiles = []
 
+	def setFunction(this, fn):
+		this.fn = fn
+		this.spec = inspect.getfullargspec(fn)
+		if this.name0 is None: this.name = getattr(fn, "__name__", f"<{len(tasks)}>")
+		
 	def __call__(this, *args, **kw):
-		if not kw and len(args) == 1 and callable(args[0]):
-			tasks.pop(this.name)
-			this.dependencies.insert(0, this.fn)
-			this.fn = args[0]
-			if this.name0 is None: this.name = getattr(this.fn, "__name__", f"<{len(tasks)}>")
-			tasks[this.name] = this
-			return this
+		if started: return this.fn(*args, *this.args[len(args):], **kw)
 
-		return this.fn()
+		del tasks[this.name]
+		this.dependencies.insert(0, this.fn)
+		this.setFunction(args[0])
+		tasks[this.name] = this
+
+		return this
 
 	for state in State:
 		vars()[state.name.lower()] = property(functools.partial(lambda this, state: this.state == state, state = state))
@@ -162,7 +164,7 @@ def registerTask(fn: Runnable, dependencies: Iterable, options):
 
 def task(*args, name: str = None, default = False, export = True, pure = False, input: Optional[Any] = None, output: Output = []):
 	options = locals().copy()
-	options.pop("args")
+	del options["args"]
 
 	if args and callable(args[0]) and not isinstance(args[0], Task):
 		return registerTask(args[0], args[1:], options)
@@ -180,6 +182,8 @@ def sh(commandLine: str, *args, shell = True, text = True, **kwargs):
 	return subprocess.run(commandLine, *args, shell = shell, text = text, **kwargs)
 
 def main():
+	global started
+	started = True
 	erred = False
 
 	def error(task: Optional[Task], message: str = None):
@@ -207,7 +211,6 @@ def main():
 
 	if erred: return
 
-	started = False
 	cache = {}
 
 	if path.exists(CACHE):
@@ -219,6 +222,8 @@ def main():
 			except Exception as e:
 				print(CACHE + " is corrupt.")
 				print(e)
+
+	first = True
 
 	def run(task: Task, parent: Task = None, initial = False):
 		if task.running: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
@@ -269,14 +274,14 @@ def main():
 			return
 
 		if debug:
-			nonlocal started
-			if started: print()
-			else: started = True
+			nonlocal first
+			if first: first = False
+			else: print()
 			print(">", task.name)
 
 		global current
 		current = task
-		task.fn(*task.args)
+		task()
 		task.state = State.DONE
 
 	for task in initialTasks: run(task, initial = True)
@@ -298,6 +303,8 @@ frames = inspect.getouterframes(inspect.currentframe())[1:]
 if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti] in [0x6b, 0x6c]):
 	for name, export in exports.items():
 		importer.frame.f_globals[name] = export
+
+started = False
 
 args0 = sys.argv[1:]
 
