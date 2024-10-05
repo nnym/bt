@@ -1,6 +1,6 @@
 This is a **b**uild **t**ool like Make with Python **b**uild **s**cripts.<br>
 Python 3.12 is required.<br>
-bt can exist in `PATH` or a project's subdirectory (a Git submodule for example).
+Setting bt up in a project is easy; see the [setup section](#setup).
 
 ```py
 bt.debug = True
@@ -47,10 +47,11 @@ Before running a task, bt runs all of its [dependencies](#dependencies) which ma
 Since tasks can take long, bt provides facilities for [caching](#cache) them so that they don't have to run every time.
 
 ### Setup
-bt can be run as an executable (as above) or a library.
+bt can be [executed directly](#executable) or [imported as a library](#library) by the build script from a subdirectory (a Git submodule for example).
+Both methods can be used simultaneously.
 
 #### Executable
-The executable is [`__main__.py`](__main__.py); a symbolic link or a shell alias can be used.
+The executable is [`__main__.py`](__main__.py); a symbolic link in `PATH` or a shell alias can be used.
 The build script has to be in the current directory and named `bs` or `bs.py`.
 ```sh
 git clone https://github.com/nnym/bt
@@ -64,8 +65,10 @@ END
 bt alfa # bar
 ```
 
+For language server support, [import](#library) bt.
+
 #### Library
-The build script—which may be named anything—is the main module and imports bt as a package in the same directory.
+The build script—which may be named anything—is the main module and imports bt as a package in the same directory or in `sys.path`.
 bt starts when the build script ends.
 
 This option allows bt to be used without setup.
@@ -77,7 +80,7 @@ git init
 git submodule add https://github.com/nnym/bt
 cat > build.py << END
 #!/bin/env python
-import bt
+from bt import *
 
 @task
 def quebec(): print("bar")
@@ -85,7 +88,7 @@ END
 chmod +x build.py
 ./build.py quebec # bar
 ```
-If the build script is named `bs` or `bs.py` instead, then it additionally can be run by the executable as in the first way.
+If the build script is named `bs` or `bs.py` instead, then it additionally can be run by the [executable](#executable).
 
 ### Usage
 bt takes as arguments names of tasks to run and `name=value` pairs which set [parameters](#parameter) for the build.
@@ -336,7 +339,7 @@ $ bt 37
 ```
 
 ### API
-Importing or running bt gives a build script direct access to
+[Importing](#library) or [executing](#executable) bt gives a build script direct access to
 - module `bt` containing
   - variable [`debug`](#debug)
   - variable [`current`](#current)

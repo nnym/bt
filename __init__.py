@@ -291,13 +291,16 @@ def main():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
+exports = bt, Arguments, Files, Task, parameter, sh, task
+__all__ = [o.__name__ for o in exports]
+exports = {export.__name__: export for export in exports}
+
 CACHE = ".bt"
 
 debug = False
 tasks: dict[str, Task] = {}
 current: Task = None
 
-exports = {export.__name__: export for export in [bt, Arguments, Files, Task, parameter, sh, task]}
 frames = inspect.getouterframes(inspect.currentframe())[1:]
 
 if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti] in [0x6b, 0x6c]):
