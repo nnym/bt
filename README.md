@@ -250,15 +250,21 @@ $ bt hotel
 ```
 
 #### Output
+bt ensures that the parent directories of all outputs exist.
+
 ```py
-@task(output = "foo")
+@task(output = "foo/bar/baz")
 def india():
-	sh("touch foo")
+	sh("touch foo/bar/baz")
 ```
-This task will be skipped if `foo` exists.
+This task will be skipped if `foo/bar/baz` exists.
 ```sh
+$ ls foo
+ls: cannot access 'foo': No such file or directory
 $ bt india
 > india
+$ ls foo/bar
+baz
 $ bt india
 ```
 

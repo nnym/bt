@@ -272,6 +272,9 @@ def main():
 			task.state = State.SKIPPED
 			return
 
+		for directory in {path.dirname(path.abspath(output)) for output in task.outputFiles}:
+			os.makedirs(directory, exist_ok = True)
+
 		nonlocal linesWritten
 
 		if debug:
