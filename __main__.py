@@ -1,10 +1,10 @@
 #!/bin/env python
-import importlib
 import os.path as path
 import sys
+from importlib import util as ilu, machinery as ilm
 
-spec = importlib.machinery.PathFinder().find_spec("bt", [path.dirname(path.dirname(path.realpath(__file__)))])
-bt = importlib.util.module_from_spec(spec)
+spec = ilm.PathFinder().find_spec("bt", [path.dirname(path.dirname(path.realpath(__file__)))])
+bt = ilu.module_from_spec(spec)
 bt.MAIN = 1
 sys.modules[bt.__name__] = bt
 spec.loader.exec_module(bt)
