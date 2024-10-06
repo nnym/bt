@@ -14,7 +14,6 @@ import traceback
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from ordered_set import OrderedSet
 from os import path
 from typing import Any, Callable, Optional, Self
 
@@ -90,10 +89,10 @@ class Arguments(FlatList):
 @dataclass
 class Files:
 	def __init__(this, *files):
-		this.files = OrderedSet()
+		this.files = {}
 
 		def flatten(f):
-			if isinstance(f, str): this.files.add(f)
+			if isinstance(f, str): this.files[f] = None
 			elif isinstance(f, Mapping): flatten(f.values())
 			elif isinstance(f, Iterable):
 				for e in f: flatten(e)
