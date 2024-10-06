@@ -223,7 +223,7 @@ def main():
 				print(CACHE + " is corrupt.")
 				print(e)
 
-	first = True
+	linesWritten = 0
 
 	def run(task: Task, parent: Task = None, initial = False):
 		if task.running: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
@@ -273,15 +273,31 @@ def main():
 			task.state = State.SKIPPED
 			return
 
+		nonlocal linesWritten
+
 		if debug:
-			nonlocal first
-			if first: first = False
-			else: print()
+			if linesWritten > 1: print()
 			print(">", task.name)
 
 		global current
 		current = task
-		task()
+		linesWritten = 0
+
+		def redirect(stream):
+			write0 = stream.write
+
+			def write(s):
+				nonlocal linesWritten
+				linesWritten += s.count("\n")
+				write0(s)
+
+			stream.write = write
+			return write0
+
+		write10, write20 = redirect(sys.stdout), redirect(sys.stderr)
+		try: task()
+		finally: sys.stdout.write, sys.stderr.write = write10, write20
+
 		task.state = State.DONE
 
 	for task in initialTasks: run(task, initial = True)

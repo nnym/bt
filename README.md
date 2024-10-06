@@ -28,9 +28,7 @@ def run():
 ```sh
 $ bt run
 > generateSource
-
 > compile
-
 > run
 foo bar
 
@@ -40,7 +38,6 @@ foo bar
 
 $ bt run options="-Oz -flto"
 > compile
-
 > run
 foo bar
 
@@ -176,12 +173,10 @@ Here `charlie` will always run before `delta`.
 ```sh
 $ bt delta
 > charlie
-
 > delta
 
 $ bt delta charlie
 > charlie
-
 > delta
 ```
 
@@ -282,9 +277,7 @@ def lima(): pass
 ```sh
 $ bt lima
 > juliett
-
 > kilo
-
 > lima
 
 $ bt kilo
@@ -308,7 +301,6 @@ $ bt ! !
 
 $ bt kilo ! !
 > juliett
-
 > kilo
 ```
 
@@ -326,7 +318,6 @@ When `november` is called after the first run, it will be skipped but `mike` wil
 ```sh
 $ bt november
 > mike
-
 > november
 
 $ bt november
