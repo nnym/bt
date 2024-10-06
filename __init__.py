@@ -317,12 +317,6 @@ debug = False
 tasks: dict[str, Task] = {}
 current: Task = None
 
-frames = inspect.getouterframes(inspect.currentframe())[1:]
-
-if importer := first(f for f in frames if f.frame.f_code.co_code[f.frame.f_lasti] in [0x6b, 0x6c]):
-	for name, export in exports.items():
-		importer.frame.f_globals[name] = export
-
 started = False
 
 args0 = sys.argv[1:]
