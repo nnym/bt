@@ -336,7 +336,6 @@ mainDirectory = path.dirname(mainPath)
 
 if "MAIN" in globals():
 	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
-		sys.path.append(mainDirectory if path.isdir(mainPath) else path.dirname(mainDirectory))
 		entry = path.abspath(entry)
 		with open(entry) as source: script = compile(source.read(), entry, "exec")
 
