@@ -237,6 +237,9 @@ def main():
 				if dependency.done and not dependency.pure: skip = False
 			else: dependency()
 
+		global current
+		current = task
+
 		if task.input:
 			def flatten(inputs):
 				if inspect.isroutine(inputs): inputs = inputs()
@@ -281,8 +284,6 @@ def main():
 			if linesWritten > 1: print()
 			print(">", task.name)
 
-		global current
-		current = task
 		linesWritten = 0
 
 		def redirect(stream):
