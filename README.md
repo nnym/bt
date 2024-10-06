@@ -5,18 +5,19 @@ Setting bt up in a project is easy; see the [setup section](#setup).
 ```py
 bt.debug = True
 
-options = ["-std=c2x", "-trigraphs", "-Ofast"]
+options = ["-std=c2x", "-Ofast", parameter("options")]
 main = "main"
 mainc = main + ".c"
 
 @task(export = False, output = mainc)
 def generateSource():
-	sh(f"""cat > {mainc} << END
-	#include <stdio.h>
-	int main() {'{puts("foo bar");}'}
-END""")
+	import textwrap
+	with open(mainc, "w") as source: source.write(textwrap.dedent("""
+		#include <stdio.h>
+		int main() {puts("foo bar");}
+	""").strip())
 
-@task(generateSource, default = True, output = main)
+@task(generateSource, default = True, input = options, output = main)
 def compile():
 	sh(Arguments("gcc -o", main, options, generateSource.outputFiles))
 
@@ -34,6 +35,16 @@ $ bt run
 foo bar
 
 $ bt run
+> run
+foo bar
+
+$ bt run options="-Oz -flto"
+> compile
+
+> run
+foo bar
+
+$ bt run options="-Oz -flto"
 > run
 foo bar
 ```
