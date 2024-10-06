@@ -180,6 +180,9 @@ def sh(commandLine: str, *args, shell = True, text = True, **kwargs):
 	if isinstance(commandLine, Arguments): commandLine = str(commandLine)
 	return subprocess.run(commandLine, *args, shell = shell, text = text, **kwargs)
 
+def shout(*args, capture_output = True, **kwargs) -> str:
+	return sh(*args, capture_output = capture_output, **kwargs).stdout
+
 def main():
 	global started
 	started = True
@@ -310,7 +313,7 @@ def main():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
-exports = bt, Arguments, Files, Task, parameter, sh, task
+exports = bt, Arguments, Files, Task, parameter, sh, shout, task
 __all__ = [o.__name__ for o in exports]
 exports = {export.__name__: export for export in exports}
 
