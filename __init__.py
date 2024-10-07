@@ -1,4 +1,5 @@
 import functools
+import glob
 import importlib
 import inspect
 import itertools
@@ -270,7 +271,10 @@ def main():
 			def flatten(inputs):
 				if inspect.isroutine(inputs): inputs = inputs()
 
-				if isinstance(inputs, Files): task.inputFiles.extend(inputs.files)
+				if isinstance(inputs, Files):
+					for pattern in inputs.files:
+						if not path.exists(pattern): error(task, f'input file "{pattern}" does not exist')
+						else: task.inputFiles.append(pattern)
 				elif isinstance(inputs, Mapping): inputs = list(inputs.values())
 				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)
 
@@ -293,8 +297,7 @@ def main():
 
 			flatten(task.output)
 
-		if [not error(task, f'input file "{input}" does not exist') for input in task.inputFiles if not path.exists(input)]:
-			exit()
+		if erred: return
 
 		if (skip and not (task.force or force == 1 and initial or force >= 2) and task.input == cache.get(task.name, None)
 		and (task.input != None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
