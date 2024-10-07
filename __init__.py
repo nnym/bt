@@ -205,7 +205,7 @@ def main():
 		min = arity - len(task.spec.defaults or [])
 		count = len(task.args)
 
-		if count < arity or count > arity and not task.spec.varargs:
+		if count < min or count > arity and not task.spec.varargs:
 			error(task, f"received {count} argument{["s", ""][count == 1]} instead of {arity if min == arity else f"{min}-{arity}"}")
 
 	if [not error(f'"{task}" does not match an exported task') for task in initialTasks if isinstance(task, str)]:
