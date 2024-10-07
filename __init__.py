@@ -273,7 +273,8 @@ def main():
 
 				if isinstance(inputs, Files):
 					for pattern in inputs.files:
-						if not path.exists(pattern): error(task, f'input file "{pattern}" does not exist')
+						if glob.has_magic(pattern): task.inputFiles += glob.glob(pattern, include_hidden = True, recursive = True)
+						elif not path.exists(pattern): error(task, f'input file "{pattern}" does not exist')
 						else: task.inputFiles.append(pattern)
 				elif isinstance(inputs, Mapping): inputs = list(inputs.values())
 				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)

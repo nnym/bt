@@ -210,7 +210,8 @@ No task matched 'foxtrot'.
 #### Cache
 Inputs and outputs are objects that determine whether a task should be skipped.
 Inputs may be anything and outputs are only files.
-They can be modified through the options `input` and `output`.
+They can be set through the options `input` and `output`.
+`Files` objects in `input` contain glob patterns for matching input files.
 
 If a task does not have inputs or outputs, then it is never skipped.
 A task that has inputs or outputs is skipped only if its inputs have not changed, its outputs all exist, and its dependencies all either are [pure](#pure-tasks) or have been skipped.
@@ -218,7 +219,7 @@ A task that has inputs or outputs is skipped only if its inputs have not changed
 Before bt exits, the `input` of every task that ran is written to a cache.
 When a task is about to run, its `input` is checked against that in the cache: if they differ, then they have changed and the task runs.
 
-File modification is tracked by mtime. If an input file does not exist, then an error is raised.
+File modification is tracked by mtime. If an input file specified by an exact filename does not exist, then an error is raised.
 
 #### Input
 ```py
