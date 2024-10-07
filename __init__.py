@@ -15,6 +15,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from os import path
+from subprocess import CompletedProcess
 from typing import Any, Callable, Optional, Self
 
 assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
@@ -161,26 +162,49 @@ def registerTask(fn: Runnable, dependencies: Iterable, options):
 	tasks[task.name] = task
 	return task
 
-def task(*args, name: str = None, default = False, export = True, pure = False, input: Optional[Any] = None, output: Output = []):
+def task(*dependencies: str | Task | Runnable, name: str = None, default = False, export = True, pure = False, input: Optional[Any] = None, output: Output = []):
+	"""Declare a task named `name` to be run at most once from the command line or as a dependency.
+	Ensure that each dependency runs before the task.
+
+	If `default`, then run it when no tasks are specified in the command line.
+	If `export`, then make it available in the command line.
+	If `pure`, then allow dependent tasks to be skipped even if this task runs.
+	If `input` is not `None` or `output` is not empty, then enable caching.
+	`input` may be any object and `output` must be a path string or an `Iterable` of path strings.
+	If `input` is or contains—directly or indirectly—a routine (as determined by `inspect.isroutine`),
+	then replace it by its result just before running the task.
+
+	Skip the task if
+	- caching is enabled
+	- no task dependency runs
+	- `input` and the mtimes of the `Files` in it are the same values from the task's previous run
+	- and all outputs exist."""
+
 	options = locals().copy()
-	del options["args"]
+	del options["dependencies"]
 
-	if args and callable(args[0]) and not isinstance(args[0], Task):
-		return registerTask(args[0], args[1:], options)
+	if dependencies and callable(dependencies[0]) and not isinstance(dependencies[0], Task):
+		return registerTask(dependencies[0], dependencies[1:], options)
 
-	return lambda fn: registerTask(fn, args, options)
+	return lambda fn: registerTask(fn, dependencies, options)
 
 def parameter(name: str, default = None, require = False):
+	"""Return the value of the parameter `name` if it's set or else `default`.
+	If it's unset and not `require`, then print an error message and exit."""
+
 	assert isinstance(name, str), f"Parameter name ({name!r}) must be a string."
 	value = parameters.get(name, default)
 	if not value and require: exit(print(f'Parameter "{name}" must be set.'))
 	return value
 
-def sh(commandLine: str, *args, shell = True, text = True, **kwargs):
+def sh(*commandLine: Optional[str | Arguments | Iterable], shell = True, text = True, **kwargs) -> CompletedProcess[str]:
+	"""Wrap `subprocess.run` with the defaults `shell = True` and `text = True`.
+	If `commandLine` is an `Arguments` then convert it into a string."""
 	if isinstance(commandLine, Arguments): commandLine = str(commandLine)
 	return subprocess.run(commandLine, *args, shell = shell, text = text, **kwargs)
 
 def shout(*args, capture_output = True, **kwargs) -> str:
+	"Wrap `sh` with `capture_output = True` and return the command's `stdout`."
 	return sh(*args, capture_output = capture_output, **kwargs).stdout
 
 def main():
