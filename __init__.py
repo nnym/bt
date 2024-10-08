@@ -199,9 +199,8 @@ def parameter(name: str, default = None, require = False):
 
 def sh(*commandLine: Optional[str | Arguments | Iterable], shell = True, text = True, **kwargs) -> CompletedProcess[str]:
 	"""Wrap `subprocess.run` with the defaults `shell = True` and `text = True`.
-	If `commandLine` is an `Arguments` then convert it into a string."""
-	if isinstance(commandLine, Arguments): commandLine = str(commandLine)
-	return subprocess.run(commandLine, *args, shell = shell, text = text, **kwargs)
+	Convert `commandLine` into an `Arguments` and then a string."""
+	return subprocess.run(str(Arguments(commandLine)), shell = shell, text = text, **kwargs)
 
 def shout(*args, capture_output = True, **kwargs) -> str:
 	"Wrap `sh` with `capture_output = True` and return the command's `stdout`."
