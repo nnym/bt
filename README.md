@@ -208,35 +208,23 @@ No task matched 'foxtrot'.
 ```
 
 #### Cache
-Inputs and outputs are objects that determine whether a task should be skipped.
-Inputs may be anything and outputs are only files.
-They can be set through the options `input` and `output`.
-`Files` objects in `input` contain glob patterns for matching input files.
+Setting any of `source`, `input` and `output` for a task enables caching which allows unnecessary tasks to be skipped.
+`source` contains glob patterns that specify files;
+`input` may be any object;
+and `output` contains filenames.
+The absence of a source file specified by an exact filename just before the task runs is an error.
 
-If a task does not have inputs or outputs, then it is never skipped.
-A task that has inputs or outputs is skipped only if its inputs have not changed, its outputs all exist, and its dependencies all either are [pure](#pure-tasks) or have been skipped.
+A task will be skipped only if
+- it has caching enabled
+- no im[pure](#pure-tasks) task dependencies run
+- `input` and the source files' mtimes are the same values from the task's previous run
+- and all output files exist.
 
-Before bt exits, the `input` of every task that ran is written to a cache.
-When a task is about to run, its `input` is checked against that in the cache: if they differ, then they have changed and the task runs.
+The cache file containing tasks' inputs from their previous runs is `.bt`.
 
-File modification is tracked by mtime. If an input file specified by an exact filename does not exist, then an error is raised.
-
-#### Input
+#### `source`
 ```py
-@task(input = "baz")
-def golf(): pass
-```
-This task will run only once ever: Since `input` has not been cached before the first run, `golf` is run once.
-Thereafter whenever the task is about to run, since `input` does not change, it matches the cached version and `golf` is skipped.
-Therefore `golf` runs only once.
-```sh
-$ bt golf
-> golf
-$ bt golf
-```
-
-```py
-@task(input = Files("foo"))
+@task(source = "foo")
 def hotel(): pass
 ```
 When this task is called, it runs if this time is the first or `foo`'s mtime changed.
@@ -250,7 +238,21 @@ $ bt hotel
 > hotel
 ```
 
-#### Output
+#### `input`
+```py
+@task(input = "baz")
+def golf(): pass
+```
+This task will run only once ever: Since `input` has not been cached before the first run, `golf` is run once.
+Thereafter whenever the task is about to run, since `input` does not change, it matches the cached version and `golf` is skipped.
+Therefore `golf` runs only once.
+```sh
+$ bt golf
+> golf
+$ bt golf
+```
+
+#### `output`
 bt ensures that the parent directories of all outputs exist.
 
 ```py

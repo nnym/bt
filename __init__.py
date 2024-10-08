@@ -23,6 +23,7 @@ assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
 bt = sys.modules["bt"]
 
 Runnable = Callable[[], Any]
+type FileSpecifier = str | Iterable[FileSpecifier] | Callable[[], FileSpecifier]
 
 class State(Enum):
 	NORMAL = 0
@@ -116,7 +117,7 @@ class Task:
 		this.state = State.NORMAL
 		this.force = False
 		this.args = []
-		this.inputFiles = []
+		this.sourceFiles = []
 		this.outputFiles = []
 
 	def setFunction(this, fn):
@@ -137,8 +138,6 @@ class Task:
 	for state in State:
 		vars()[state.name.lower()] = property(functools.partial(lambda this, state: this.state == state, state = state))
 
-Output = str | Files
-Output |= Iterable[Output]
 
 def first[A](iterator: Iterator[A]) -> Optional[A]:
 	return next(iterator, None)
@@ -163,23 +162,30 @@ def registerTask(fn: Runnable, dependencies: Iterable, options):
 	tasks[task.name] = task
 	return task
 
-def task(*dependencies: str | Task | Runnable, name: str = None, default = False, export = True, pure = False, input: Optional[Any] = None, output: Output = []):
+def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, default = False, export = True, pure = False,
+	source: FileSpecifier = [], input: Optional[Any] = None, output: FileSpecifier = []):
 	"""Declare a task named `name` to be run at most once from the command line or as a dependency.
-	Ensure that each dependency runs before the task.
+	Each dependency will run before the task.
 
-	If `default`, then run it when no tasks are specified in the command line.
-	If `export`, then make it available in the command line.
-	If `pure`, then allow dependent tasks to be skipped even if this task runs.
-	If `input` is not `None` or `output` is not empty, then enable caching.
-	`input` may be any object and `output` must be a path string or an `Iterable` of path strings.
-	If `input` is or contains—directly or indirectly—a routine (as determined by `inspect.isroutine`),
-	then replace it by its result just before running the task.
+	If `default`, then the task will run when no tasks are specified in the command line.
+	If `export`, then it will be available in the command line.
+	If `pure`, then dependent tasks may be skipped even if this task runs.
 
-	Skip the task if
+	If `source` or `output` is not an empty list or `input` is not `None`, then caching will be enabled.
+
+	`source` and `outputs` will be searched for files recursively.
+	Callables found therein will be converted into their results.
+
+	`Iterable`s in `input` that are not `Sequence`s will be replaced by lists.
+
+	All routines (as determined by `inspect.isroutine`) found recursively in `input`
+	will be replaced by their results just before the task runs.
+
+	The task will be skipped if
 	- caching is enabled
 	- no task dependency runs
-	- `input` and the mtimes of the `Files` in it are the same values from the task's previous run
-	- and all outputs exist."""
+	- `input` and the source files' mtimes are the same values from the task's previous run
+	- and all output files exist."""
 
 	options = locals().copy()
 	del options["dependencies"]
@@ -267,16 +273,30 @@ def main():
 		global current
 		current = task
 
-		if task.input:
+		def getFiles(source, flat, errorMessage, container = None):
+			if container is None: container = source
+
+			if isinstance(source, str): flat.append(source)
+			elif isinstance(source, Mapping): getFiles(source.values(), flat, errorMessage, container)
+			elif isinstance(source, Iterable):
+				for o in source: getFiles(o, flat, errorMessage, container)
+			elif callable(source): getFiles(source(), flat, errorMessage, container)
+			else: error(task, errorMessage(source))
+
+		if task.source != []:
+			files = []
+			getFiles(task.source, files, lambda source: f"source file {source!r} is not a string, iterable, or callable")
+
+			for file in files:
+				if glob.has_magic(file): task.sourceFiles += glob.glob(file, include_hidden = True, recursive = True)
+				elif not path.exists(file): error(task, f'source file "{file}" does not exist')
+				else: task.sourceFiles.append(file)
+
+		if task.input is not None:
 			def flatten(inputs):
 				if inspect.isroutine(inputs): inputs = inputs()
 
-				if isinstance(inputs, Files):
-					for pattern in inputs.files:
-						if glob.has_magic(pattern): task.inputFiles += glob.glob(pattern, include_hidden = True, recursive = True)
-						elif not path.exists(pattern): error(task, f'input file "{pattern}" does not exist')
-						else: task.inputFiles.append(pattern)
-				elif isinstance(inputs, Mapping): inputs = list(inputs.values())
+				if isinstance(inputs, Mapping): inputs = list(inputs.values())
 				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)
 
 				if isinstance(inputs, Sequence) and not isinstance(inputs, str):
@@ -285,23 +305,16 @@ def main():
 
 				return inputs
 
-			task.input = [flatten(task.input or 0), [os.path.getmtime(input) for input in task.inputFiles]]
+			task.input = flatten(task.input or 0)
 
-		if task.output:
-			def flatten(output):
-				if isinstance(output, str): task.outputFiles.append(output)
-				elif isinstance(output, Mapping): flatten(output.values())
-				elif isinstance(output, Iterable):
-					for o in output: flatten(o)
-				elif callable(output): flatten(output())
-				else: error(task, f"output {output!r} is not a file (a string, iterable, or callable)")
+		task.input = task.input, [path.getmtime(input) for input in task.sourceFiles]
 
-			flatten(task.output)
+		if task.output != []: getFiles(task.output, task.outputFiles, lambda o: f"output {o!r} is not a file (a string, iterable, or callable)")
 
 		if erred: return
 
 		if (skip and not (task.force or force == 1 and initial or force >= 2) and task.input == cache.get(task.name, None)
-		and (task.input != None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
+		and (task.source != [] or task.input[0] is not None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
 			task.state = State.SKIPPED
 			return
 
