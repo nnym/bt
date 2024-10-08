@@ -100,7 +100,7 @@ bt starts automatically when the build script's thread stops.
 
 1. Make a build script (here `bs`):
 ```py
-#!/bin/env python
+#!/usr/bin/env python
 from bt import *
 
 @task
