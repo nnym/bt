@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import glob
 import importlib
@@ -17,6 +18,7 @@ from dataclasses import dataclass
 from enum import Enum
 from os import path
 from subprocess import CompletedProcess
+from time import time_ns as ns
 from typing import Any, Callable, Optional, Self
 
 assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
@@ -137,6 +139,12 @@ class Task:
 
 	for state in State:
 		vars()[state.name.lower()] = property(functools.partial(lambda this, state: this.state == state, state = state))
+
+@contextlib.contextmanager
+def measure(precision = 1e3):
+	t0 = ns()
+	try: yield None
+	finally: print((ns() - t0) / (1e9 / precision))
 
 
 def first[A](iterator: Iterator[A]) -> Optional[A]:
