@@ -1,5 +1,4 @@
 import contextlib
-import functools
 import glob
 import importlib
 import inspect
@@ -25,7 +24,7 @@ __version__ = 2
 assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
 bt = sys.modules["bt"]
 
-Runnable = Callable[[], Any]
+type Runnable = Callable[[], Any]
 type FileSpecifier = str | Iterable[FileSpecifier] | Callable[[], FileSpecifier]
 
 class State(Enum):
@@ -35,9 +34,6 @@ class State(Enum):
 	SKIPPED = 3
 
 class FlatList(list):
-	@staticmethod
-	def isIterable(x): return isinstance(x, Iterable) and not isinstance(x, str)
-
 	def transform(this, x):
 		return x
 
@@ -48,17 +44,17 @@ class FlatList(list):
 
 	def append(this, x):
 		if x := this.transform(x):
-			if this.isIterable(x): this.extend(x)
+			if isIterable(x): this.extend(x)
 			elif x: super().append(x)
 
 	def insert(this, i, x):
 		if x := this.transform(x):
-			if this.isIterable(x): this[i:i] = x
+			if isIterable(x): this[i:i] = x
 			elif x: super().insert(i, x)
 
 	def extend(this, x):
 		if x := this.transform(x):
-			assert this.isIterable(x), f"{x!r} is a string or not iterable."
+			assert isIterable(x), f"{x!r} is a string or not iterable."
 			super().extend(x)
 		return this
 
@@ -139,7 +135,7 @@ class Task:
 		return this
 
 	for state in State:
-		vars()[state.name.lower()] = property(functools.partial(lambda this, state: this.state == state, state = state))
+		vars()[state.name.lower()] = property((lambda state, this: this.state == state).__get__(state))
 
 @contextlib.contextmanager
 def measure(precision = 1e3):
@@ -147,6 +143,7 @@ def measure(precision = 1e3):
 	try: yield None
 	finally: print((ns() - t0) / (1e9 / precision))
 
+def isIterable(x): return isinstance(x, Iterable) and not isinstance(x, str)
 
 def first[A](iterator: Iterator[A]) -> Optional[A]:
 	return next(iterator, None)
@@ -200,8 +197,7 @@ def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, defau
 	- `input` and the source files' mtimes are the same values from the task's previous run
 	- and all output files exist."""
 
-	options = locals().copy()
-	del options["dependencies"]
+	options = dict(list(locals().items())[:-1])
 
 	if dependencies and callable(dependencies[0]) and not isinstance(dependencies[0], Task):
 		return registerTask(dependencies[0], dependencies[1:], options)
@@ -312,7 +308,7 @@ def start():
 				if isinstance(inputs, Mapping): inputs = list(inputs.values())
 				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)
 
-				if isinstance(inputs, Sequence) and not isinstance(inputs, str):
+				if isIterable(inputs):
 					for i, input in enumerate(inputs):
 						inputs[i] = flatten(input)
 
@@ -382,8 +378,8 @@ def main():
 	start()
 
 exports = bt, Arguments, Files, Task, parameter, require, sh, shout, task
-__all__ = [o.__name__ for o in exports]
-exports = {export.__name__: export for export in exports}
+exports = {export.__name__: export for export in exports} | {"path": path}
+__all__ = list(exports.keys())
 
 CACHE = ".bt"
 
