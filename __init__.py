@@ -21,6 +21,7 @@ from subprocess import CompletedProcess
 from time import time_ns as ns
 from typing import Any, Callable, Optional, Self
 
+__version__ = 2
 assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
 bt = sys.modules["bt"]
 
@@ -170,6 +171,10 @@ def registerTask(fn: Runnable, dependencies: Iterable, options):
 	tasks[task.name] = task
 	return task
 
+def require(version: int):
+	"Exit with an error message if the version of bt is older than `version`."
+	if __version__ < version: exit(print(f"bt is version {__version__} but version {version} or newer is required."))
+
 def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, default = False, export = True, pure = False,
 	source: FileSpecifier = [], input: Optional[Any] = None, output: FileSpecifier = []):
 	"""Declare a task named `name` to be run at most once from the command line or as a dependency.
@@ -221,7 +226,7 @@ def shout(*args, capture_output = True, **kwargs) -> str:
 	"Wrap `sh` with `capture_output = True` and return the command's `stdout`."
 	return sh(*args, capture_output = capture_output, **kwargs).stdout
 
-def main():
+def start():
 	global started
 	started = True
 	erred = False
@@ -361,7 +366,22 @@ def main():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
-exports = bt, Arguments, Files, Task, parameter, sh, shout, task
+def main():
+	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
+		entry = path.abspath(entry)
+		with open(entry) as source: script = compile(source.read(), entry, "exec")
+
+		try: exec(script, exports)
+		except Exception as e:
+			tb = e.__traceback__
+			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
+			if tb: e.__traceback__ = tb
+			exit(traceback.print_exc())
+	else: exit(print("No build script (bs or bs.py) was found."))
+
+	start()
+
+exports = bt, Arguments, Files, Task, parameter, require, sh, shout, task
 __all__ = [o.__name__ for o in exports]
 exports = {export.__name__: export for export in exports}
 
@@ -385,26 +405,14 @@ parameters = args1.get(True, [])
 parameters: dict[str, str] = dict(arg.split("=", 2) for arg in parameters)
 force = len(args0) - len(args1)
 
-mainPath = path.realpath(sys.argv[0])
-mainDirectory = path.dirname(mainPath)
+f = sys._getframe()
 
-if "MAIN" in globals():
-	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
-		entry = path.abspath(entry)
-		with open(entry) as source: script = compile(source.read(), entry, "exec")
-
-		try: exec(script, exports)
-		except Exception as e:
-			tb = e.__traceback__
-			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
-			if tb: e.__traceback__ = tb
-			exit(traceback.print_exc())
-	else: exit(print("No build script (bs or bs.py) was found."))
-
-	main()
+while f := f.f_back:
+	if (co := f.f_code).co_code[i := f.f_lasti] in [0x6b, 0x6c] and "__main__" in co.co_names[co.co_code[i + 1]]: break
 else:
-	os.chdir(mainDirectory)
-	caller = threading.current_thread()
-	thread = threading.Thread(target = lambda: (caller.join(), main()), daemon = False)
-	thread.start()
-	hook, threading.excepthook = threading.excepthook, lambda args: thread._stop() if args.thread == caller else hook(args)
+	if "MAIN" not in globals():
+		os.chdir(path.dirname(path.realpath(sys.argv[0])))
+		caller = threading.current_thread()
+		thread = threading.Thread(target = lambda: (caller.join(), start()), daemon = False)
+		thread.start()
+		hook, threading.excepthook = threading.excepthook, lambda args: thread._stop() if args.thread == caller else hook(args)

@@ -55,48 +55,59 @@ Before running a task, bt runs all of its [dependencies](#dependencies) which ma
 Since tasks can take long, bt provides facilities for [caching](#cache) them so that they don't have to run every time.
 
 ### Setup
-bt can be [executed directly](#executable) or [imported as a library](#library) by the build script from a subdirectory (a Git submodule for example).
-Both methods can be used simultaneously.
+bt can be installed [globally](#global) or [locally](#local) per project (as a Git submodule for example).
+
+#### Global
+1. Install bt: `python -m pip install --user buildt`. On macOS and some Linux distributions, `--break-system-packages` might be necessary.
+2. If pip shows something like `WARNING: The script bt is installed in '/home/x/.local/bin' which is not on PATH.`,
+then add the directory in the message to `PATH`.
+3. [Run](#executable) it in a directory with a build script.
+
+Alternatively, bt can be cloned anywhere; [`__main__.py`](__main__.py) is the executable.
+
+#### Local
+1. Enter a new or existing project directory.
+2. a. In a Git repository, add bt as a submodule: `git submodule add https://github.com/nnym/bt`<br>
+   b. otherwise, clone it: `git clone https://github.com/nnym/bt`.
+3. Use it by [importing](#library) it in the build script.
+
+### Running
+bt can run as an [executable](#executable) or as a [library](#library) imported by the build script.
+
+bt can be run as an executable if the build script is named `bs` or `bs.py` and bt is installed
+- globally (`bt foo` if bt is in `PATH` or `python -m bt foo`)
+- or locally (`python bt foo`).
+
+In both cases, bt can be run by being [imported](#library) by the build script (`./bs foo` or `python bs foo`).
+
+On Windows, `py` can be used instead of `python`. It can be useful if the build script's name does not have the extension `.py`.
 
 #### Executable
-The executable is [`__main__.py`](__main__.py); a symbolic link in `PATH` or a shell alias can be used.
-The build script has to be in the current directory and named `bs` or `bs.py`.
-```sh
-git clone https://github.com/nnym/bt
-alias bt="`realpath bt/__main__.py`"
-mkdir foo
-cd foo
-cat > bs << END
+bt searches for a build script named `bs` or `bs.py` in the current directory and runs it.
+
+1. Make a build script in a new or existing project directory.
+```py
+from bt import * # This is optional but recommended for language server support.
+
 @task
 def alfa(): print("bar")
-END
-bt alfa # bar
 ```
-
-For language server support, [import](#library) bt.
+2. Run it: `bt alfa # bar`.
 
 #### Library
-The build script—which may be named anything—is the main module and imports bt as a package in the same directory or in `sys.path`.
-bt starts when the build script ends.
+The build script—which may be named anything—is the main module and imports bt as a package.
+bt starts automatically when the build script's thread stops.
 
-This option allows bt to be used without setup.
-
-```sh
-mkdir foo
-cd foo
-git init
-git submodule add https://github.com/nnym/bt
-cat > build.py << END
+1. Make a build script (here `bs`):
+```py
 #!/bin/env python
 from bt import *
 
 @task
 def quebec(): print("bar")
-END
-chmod +x build.py
-./build.py quebec # bar
 ```
-If the build script is named `bs` or `bs.py` instead, then it additionally can be run by the [executable](#executable).
+2. (Outside Windows) make it executable: `chmod +x bs`.
+3. Run it: `./bs quebec # bar` (`py bs quebec` on Windows).
 
 ### Usage
 bt takes as arguments names of tasks to run and `name=value` pairs which set [parameters](#parameter) for the build.

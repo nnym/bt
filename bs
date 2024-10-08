@@ -1,0 +1,28 @@
+#!/bin/env python
+import os
+import shlex
+import shutil
+from bt import *
+
+@task(source = ["README.md", "pyproject.toml", "*.py"])
+def build():
+	shutil.rmtree("dist", ignore_errors = True)
+	sh("python -m build")
+
+@task(build)
+def publish(): sh("twine upload -r pypi dist/*")
+
+@task(build)
+def publishTest(): sh("twine upload -r testpypi dist/*")
+
+@task(build)
+def installEditable(): sh("pip install --user --break-system-packages -e .")
+
+@task(build)
+def install(): sh("pip install --user --break-system-packages dist/*.whl")
+
+@task
+def download(): sh("pip install --user --break-system-packages --upgrade -i https://test.pypi.org/project buildt")
+
+@task
+def downloadTest(): sh("pip install --user --break-system-packages --upgrade -i https://test.pypi.org/project buildt")

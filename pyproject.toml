@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "buildt"
+requires-python = ">=3.12"
+dynamic = ["version"]
+
+[project.scripts]
+bt = "bt.__main__:main"
+
+[tool.setuptools]
+packages = ["bt"]
+package-dir = {bt = "."}
+
+[tool.setuptools.dynamic]
+version = {attr = "bt.__version__"}
