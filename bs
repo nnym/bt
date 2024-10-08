@@ -15,14 +15,17 @@ def publish(): sh("twine upload -r pypi dist/*")
 @task(build)
 def publishTest(): sh("twine upload -r testpypi dist/*")
 
-@task(build)
+@task
 def installEditable(): sh("pip install --user --break-system-packages -e .")
 
 @task(build)
 def install(): sh("pip install --user --break-system-packages dist/*.whl")
 
 @task
-def download(): sh("pip install --user --break-system-packages --upgrade -i https://test.pypi.org/project buildt")
+def uninstall(): sh("pip uninstall --user --break-system-packages buildt")
 
 @task
-def downloadTest(): sh("pip install --user --break-system-packages --upgrade -i https://test.pypi.org/project buildt")
+def download(): sh("pip install --user --break-system-packages --force-reinstall buildt")
+
+@task
+def downloadTest(): sh("pip install --user --break-system-packages --force-reinstall -i https://test.pypi.org/project buildt")
