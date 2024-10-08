@@ -395,11 +395,11 @@ if "--" in args0 and ~(split := args0.index("--")):
 	args0, args = args0[:split], args0[split + 1:]
 else: args = []
 
-args1 = group((arg for arg in args0 if arg != "!"), lambda a: "=" in a)
-cmdTasks = args1.get(False, [])
-parameters = args1.get(True, []) 
-parameters: dict[str, str] = dict(arg.split("=", 2) for arg in parameters)
+args1 = [a for a in args0 if a != "!"]
 force = len(args0) - len(args1)
+args1 = group(args1, lambda a: "=" in a)
+cmdTasks = args1.get(False, [])
+parameters: dict[str, str] = dict(arg.split("=", 2) for arg in args1.get(True, []))
 
 f = sys._getframe()
 
