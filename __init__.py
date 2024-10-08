@@ -20,7 +20,7 @@ from subprocess import CompletedProcess
 from time import time_ns as ns
 from typing import Any, Callable, Optional, Self
 
-__version__ = 2
+__version__ = 3
 assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
 bt = sys.modules["bt"]
 
@@ -404,11 +404,11 @@ force = len(args0) - len(args1)
 f = sys._getframe()
 
 while f := f.f_back:
-	if (co := f.f_code).co_code[i := f.f_lasti] in [0x6b, 0x6c] and "__main__" in co.co_names[co.co_code[i + 1]]: break
-else:
-	if "MAIN" not in globals():
+	if (co := f.f_code).co_code[i := f.f_lasti] in [0x6b, 0x6c] and "__main__" not in co.co_names[co.co_code[i + 1]]:
 		os.chdir(path.dirname(path.realpath(sys.argv[0])))
 		caller = threading.current_thread()
 		thread = threading.Thread(target = lambda: (caller.join(), start()), daemon = False)
 		thread.start()
 		hook, threading.excepthook = threading.excepthook, lambda args: thread._stop() if args.thread == caller else hook(args)
+
+		break
