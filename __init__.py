@@ -7,6 +7,7 @@ import os
 import pickle
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import threading
@@ -222,6 +223,11 @@ def shout(*args, capture_output = True, **kwargs) -> str:
 	"Wrap `sh` with `capture_output = True` and return the command's `stdout`."
 	return sh(*args, capture_output = capture_output, **kwargs).stdout
 
+def rm(path: str):
+	"Remove the specified path recursively if it exists."
+	if os.path.isdir(path) and not os.path.islink(path): shutil.rmtree(path)
+	elif os.path.exists(path): os.remove(path)
+
 def start():
 	global started
 	started = True
@@ -377,7 +383,7 @@ def main():
 
 	start()
 
-exports = bt, Arguments, Files, Task, parameter, require, sh, shout, task
+exports = bt, Arguments, Files, Task, parameter, require, rm, sh, shout, task
 exports = {export.__name__: export for export in exports} | {"path": path}
 __all__ = list(exports.keys())
 
