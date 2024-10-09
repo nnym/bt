@@ -1,4 +1,5 @@
 import contextlib
+import dis
 import glob
 import importlib
 import inspect
@@ -19,6 +20,7 @@ from enum import Enum
 from os import path
 from subprocess import CompletedProcess
 from time import time_ns as ns
+from types import FrameType as Frame
 from typing import Any, Callable, Optional, Self
 
 __version__ = 3
@@ -407,10 +409,10 @@ args1 = group(args1, lambda a: "=" in a)
 cmdTasks = args1.get(False, [])
 parameters: dict[str, str] = dict(arg.split("=", 2) for arg in args1.get(True, []))
 
-f = sys._getframe()
+f: Frame = sys._getframe()
 
 while f := f.f_back:
-	if (co := f.f_code).co_code[i := f.f_lasti] in [0x6b, 0x6c] and "__main__" not in co.co_names[co.co_code[i + 1]]:
+	if dis.opname[(co := f.f_code).co_code[i := f.f_lasti]] in ["IMPORT_NAME", "IMPORT_FROM"] and "__main__" not in co.co_names[co.co_code[i + 1]]:
 		os.chdir(path.dirname(path.realpath(sys.argv[0])))
 		caller = threading.current_thread()
 		thread = threading.Thread(target = lambda: (caller.join(), start()), daemon = False)
