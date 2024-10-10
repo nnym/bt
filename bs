@@ -2,7 +2,10 @@
 import os
 import shlex
 import shutil
-from bt import *
+import sys
+
+try: from bt import *
+except: from __init__ import *
 
 @task(source = ["README.md", "pyproject.toml", "*.py"])
 def build():
@@ -11,8 +14,10 @@ def build():
 
 @task
 def documentation(command = "singlehtml"):
+	from sphinx.cmd.build import main
 	rm(".documentation")
-	sh("sphinx-build -M", command, "documentation .documentation 2>&1")
+	sys.stderr = sys.stdout
+	main(["-M", command, "documentation", ".documentation"])
 
 @task(build)
 def publish(): sh("twine upload -r pypi dist/*")
