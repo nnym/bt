@@ -406,12 +406,9 @@ def start():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
-def main():
+def main(loadModule):
 	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
-		entry = path.abspath(entry)
-		with open(entry) as source: script = compile(source.read(), entry, "exec")
-
-		try: exec(script, exports)
+		try: loadModule("bs", entry)
 		except Exception as e:
 			tb = e.__traceback__
 			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
