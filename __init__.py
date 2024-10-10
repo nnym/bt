@@ -15,7 +15,7 @@ import threading
 import time
 import traceback
 import typing
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from os import path
@@ -352,7 +352,7 @@ def start():
 				if inspect.isroutine(inputs): inputs = inputs()
 
 				if isinstance(inputs, Mapping): inputs = list(inputs.values())
-				elif isinstance(inputs, Iterable) and not isinstance(inputs, Sequence): inputs = list(inputs)
+				elif isinstance(inputs, Iterable) and not isinstance(inputs, str | MutableSequence): inputs = list(inputs)
 
 				if isIterable(inputs):
 					for i, input in enumerate(inputs):
