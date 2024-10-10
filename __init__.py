@@ -25,10 +25,12 @@ from types import FrameType as Frame
 from typing import Any, Callable, Optional, Self
 
 __version__ = 3
-assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
+assert __name__ == "bt" or "bt" not in sys.modules, f'bt\'s module name is "{__name__}" but "bt" is already in sys.modules'
 
-bt = sys.modules["bt"]
+bt = sys.modules[__name__]
 "bt's main module."
+
+sys.modules["bt"] = bt
 
 type Runnable = Callable[[], Any]
 Runnable = Runnable.__value__
