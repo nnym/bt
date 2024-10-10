@@ -24,6 +24,8 @@ from time import time_ns as ns
 from types import FrameType as Frame
 from typing import Any, Callable, Optional, Self
 
+if sys.version_info < (3, 12): exit(print("bt requires Python 3.12 or newer."))
+
 __version__ = 3
 assert __name__ == "bt" or "bt" not in sys.modules, f'bt\'s module name is "{__name__}" but "bt" is already in sys.modules'
 
