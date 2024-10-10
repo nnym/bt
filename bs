@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
 import shlex
-import shutil
 import sys
 
 try: from bt import *
@@ -9,7 +8,7 @@ except: from __init__ import *
 
 @task(source = ["README.md", "pyproject.toml", "*.py"], output = "dist")
 def build():
-	shutil.rmtree("dist", ignore_errors = True)
+	rm("dist")
 	sh("python -m build")
 
 @task
