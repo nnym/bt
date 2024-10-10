@@ -9,6 +9,11 @@ def build():
 	shutil.rmtree("dist", ignore_errors = True)
 	sh("python -m build")
 
+@task
+def documentation(command = "singlehtml"):
+	rm(".documentation")
+	sh("sphinx-build -M", command, "documentation .documentation 2>&1")
+
 @task(build)
 def publish(): sh("twine upload -r pypi dist/*")
 

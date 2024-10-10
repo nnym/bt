@@ -1,0 +1,33 @@
+html {
+	--width: 80em;
+}
+
+.bottom-of-page,
+.sidebar-search-container {
+	display: none
+}
+
+.sidebar-drawer {
+	width: calc(50% - (var(--width) / 2));
+}
+
+.content {
+	width: calc(var(--width) - 6em);
+}
+
+.sig-prename {
+	display: none;
+}
+
+.reference:visited:is(*, :hover) {
+	color: var(--color-link);
+}
+
+cite {
+	font-family: monospace;
+	font-style: unset;
+}
+
+body:not([data-theme=light]) {
+	--color-highlight-on-target: #2c2e33
+}

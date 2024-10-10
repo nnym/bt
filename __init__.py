@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import traceback
+import typing
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -25,10 +26,17 @@ from typing import Any, Callable, Optional, Self
 
 __version__ = 3
 assert __name__ == "bt", f'bt\'s module name is "{__name__}" instead of "bt"'
+
 bt = sys.modules["bt"]
+"bt's main module."
 
 type Runnable = Callable[[], Any]
-type FileSpecifier = str | Iterable[FileSpecifier] | Callable[[], FileSpecifier]
+Runnable = Runnable.__value__
+"A function that can be called without arguments."
+
+type FileSpecifier = str | typing.Iterable[FileSpecifier] | Callable[[], FileSpecifier]
+FileSpecifier = FileSpecifier.__value__
+"""A path or collection of paths."""
 
 class State(Enum):
 	NORMAL = 0
@@ -76,6 +84,20 @@ class FlatList(list):
 		return this.copy().extend(x)
 
 class Arguments(FlatList):
+	"""`Arguments` is a `list` derivative that stores a full or partial command line.
+
+	Only `None`, strings and `Iterable`s may be added;
+	`None` is discarded and every `Iterable` is flattened.
+
+	```python
+	source = ["main.c"]
+	exe = "foo"
+	options = "-Ofast -std=c2x"
+	command = Arguments("gcc", source, "-o", exe, options, parameter("o"))
+	print(command) # gcc main.c -o foo -Ofast -std=c2x
+	print(command.split()) # ['gcc', 'main.c', '-o', 'foo', '-Ofast', '-std=c2x']
+	"""
+
 	def __init__(this, *arguments):
 		for arg in arguments: this.append(arg)
 
@@ -87,9 +109,13 @@ class Arguments(FlatList):
 		if isinstance(args, Iterable): return Arguments(*args)
 		if args: raise TypeError(f"{args!r} is not iterable or a string")
 
-	def split(this): return shlex.split(str(this))
+	def split(this):
+		"Split this argument list's `__str__` into a list."
+		return shlex.split(str(this))
 
-	def __str__(this): return " ".join(this)
+	def __str__(this):
+		"Return all elements joined by spaces."
+		return " ".join(this)
 
 @dataclass
 class Files:
@@ -180,13 +206,13 @@ def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, defau
 	"""Declare a task named `name` to be run at most once from the command line or as a dependency.
 	Each dependency will run before the task.
 
-	If `default`, then the task will run when no tasks are specified in the command line.
-	If `export`, then it will be available in the command line.
+	If `default`, then the task will run when no tasks are specified in the command line.\n
+	If `export`, then it will be available in the command line.\n
 	If `pure`, then dependent tasks may be skipped even if this task runs.
 
 	If `source` or `output` is not an empty list or `input` is not `None`, then caching will be enabled.
 
-	`source` and `outputs` will be searched for files recursively.
+	`source` and `output` will be searched for files recursively.
 	Callables found therein will be converted into their results.
 
 	`Iterable`s in `input` that are not `Sequence`s will be replaced by lists.
@@ -393,15 +419,20 @@ def main():
 
 	start()
 
+debug = False
+"""Whether to print debugging information.
+Currently only names of tasks before they run are printed."""
+
+current: Task = None
+"The task that is currently running."
+
 exports = bt, Arguments, Files, Task, parameter, require, read, rm, sh, shout, task, write
-exports = {export.__name__: export for export in exports} | {"path": path}
+exports = {export.__name__: export for export in exports} | {"FileSpecifier": FileSpecifier, "Runnable": Runnable, "path": path}
 __all__ = list(exports.keys())
 
 CACHE = ".bt"
 
-debug = False
 tasks: dict[str, Task] = {}
-current: Task = None
 
 started = False
 
