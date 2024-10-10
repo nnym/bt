@@ -2,6 +2,8 @@ This is a **b**uild **t**ool like Make with Python **b**uild **s**cripts.<br>
 Python 3.12 is required.<br>
 Setting bt up in a project is easy; see the [setup section](#setup).
 
+[**API documentation**](//nnym.github.io/bt)
+
 ```py
 bt.debug = True
 
@@ -50,7 +52,7 @@ foo bar
 The execution of bt is always accompanied by a build script.
 bt lets the build script run and define [tasks](#tasks) and do any other setup.
 When the build script exits, bt takes over.
-It looks at the command line arguments that were passed and sets [parameters](#parameter) and determines which tasks to run.
+It looks at the command line arguments that were passed and sets [parameters](//nnym.github.io/bt#bt.parameter) and determines which tasks to run.
 Before running a task, bt runs all of its [dependencies](#dependencies) which may include tasks and callables.
 Since tasks can take long, bt provides facilities for [caching](#cache) them so that they don't have to run every time.
 
@@ -110,7 +112,7 @@ def quebec(): print("bar")
 3. Run it: `./bs quebec # bar` (`py bs quebec` on Windows).
 
 ### Usage
-bt takes as arguments names of tasks to run and `name=value` pairs which set [parameters](#parameter) for the build.
+bt takes as arguments names of tasks to run and `name=value` pairs which set [parameters](//nnym.github.io/bt#bt.parameter) for the build.
 
 ### Tasks
 Tasks are functions that can be run on demand from the command line or as [dependencies](#dependencies) of other tasks.<br>
@@ -358,54 +360,4 @@ This will generate 100 tasks with the numbers 0-99 as their names.
 $ bt 37
 > 37
 37 * 37 = 1369
-```
-
-### API
-[Importing](#library) or [executing](#executable) bt gives a build script direct access to
-- module `bt` containing
-  - variable [`debug`](#debug)
-  - variable [`current`](#current)
-- classes
-  - [`Arguments`](#arguments)
-  - [`Files`](#files)
-  - `Task`
-- functions
-  - [`parameter`](#parameter)
-  - [`sh`](#sh)
-  - [`task`](#tasks).
-
-If a name is not listed here, then it should be assumed to be internal.
-
-#### `debug`
-This flag determines whether to print debugging information. Currently only names of tasks before they run are printed.
-
-#### `current`
-This variable stores the task that is currently running.
-
-#### `parameter`
-A parameter `name` can be set to `"value"` by passing `name=value` in the command line.
-
-The function `parameter(name, default = None, require = False)` allows the build script to read parameter values.
-If the parameter is not set, then
-- if `require`, then an error message is printed and the build is terminated
-- otherwise `default` is returned.
-
-#### `sh`
-bt exports function `sh` for running shell commands.
-`sh` forwards its parameters to `subprocess.run` and sets `shell = True` and `text = True` by default.
-If the command line is an [`Arguments`](#arguments), then it is converted into a string.
-```py
-sh("tr ab ba", input = "abr abz")
-```
-
-#### `Arguments`
-`Arguments` is a `list` derivative that stores a full or partial command line.
-It flattens every added `Iterable`. Supported element types are `str` and `Iterable`.
-Its string representation joins its elements with spaces.
-Its method `split` splits its string representation into a list.
-```py
-source = ["main.c"]
-exe = "foo"
-options = ["-Ofast", "-std=c2x"]
-sh(Arguments("gcc", source, "-o", exe, options))
 ```
