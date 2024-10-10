@@ -225,6 +225,14 @@ def shout(*args, capture_output = True, **kwargs) -> str:
 	"Wrap `sh` with `capture_output = True` and return the command's `stdout`."
 	return sh(*args, capture_output = capture_output, **kwargs).stdout
 
+def read(file: str) -> str:
+	"`open`, read and close the `file` and return its contents."
+	with open(file) as fo: return fo.read()
+
+def write(file: str, contents: str):
+	"`open`, write `contents` to and close the `file`."
+	with open(file, "w") as fo: fo.write(contents)
+
 def rm(path: str):
 	"Remove the specified path recursively if it exists."
 	if os.path.isdir(path) and not os.path.islink(path): shutil.rmtree(path)
@@ -385,7 +393,7 @@ def main():
 
 	start()
 
-exports = bt, Arguments, Files, Task, parameter, require, rm, sh, shout, task
+exports = bt, Arguments, Files, Task, parameter, require, read, rm, sh, shout, task, write
 exports = {export.__name__: export for export in exports} | {"path": path}
 __all__ = list(exports.keys())
 
