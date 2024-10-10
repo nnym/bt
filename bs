@@ -7,7 +7,7 @@ import sys
 try: from bt import *
 except: from __init__ import *
 
-@task(source = ["README.md", "pyproject.toml", "*.py"])
+@task(source = ["README.md", "pyproject.toml", "*.py"], output = "dist")
 def build():
 	shutil.rmtree("dist", ignore_errors = True)
 	sh("python -m build")
