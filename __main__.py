@@ -1,15 +1,12 @@
 #!/usr/bin/env python
-import os.path as path
+import os.path as osp
 import sys
-from importlib import util as ilu, machinery as ilm
+from importlib import machinery as ilm
+
+def loadModule(name, path):
+	return ilm.SourceFileLoader(name, path).load_module()
 
 def main():
-	if not (bt := sys.modules.get("bt", None)):
-		spec = ilm.PathFinder().find_spec("bt", [path.dirname(path.dirname(path.realpath(__file__)))])
-		bt = ilu.module_from_spec(spec)
-		sys.modules[bt.__name__] = bt
-		spec.loader.exec_module(bt)
-
-	bt.main()
+	(sys.modules.get("bt", None) or loadModule("bt", osp.join(osp.dirname(osp.realpath(__file__)), "__init__.py"))).main(loadModule)
 
 if __name__ == "__main__": main()
