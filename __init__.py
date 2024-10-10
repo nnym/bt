@@ -415,7 +415,7 @@ def main(loadModule):
 			tb = e.__traceback__
 			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
 			if tb: e.__traceback__ = tb
-			exit(traceback.print_exc())
+			raise e.with_traceback(tb)
 	else: exit(print("No build script (bs or bs.py) was found."))
 
 	start()
