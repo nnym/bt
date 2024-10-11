@@ -26,7 +26,7 @@ from typing import Any, Callable, Optional, Self
 
 if sys.version_info < (3, 12): exit(print("bt requires Python 3.12 or newer."))
 
-__version__ = 4
+__version__ = 5
 assert __name__ == "bt" or "bt" not in sys.modules, f'bt\'s module name is "{__name__}" but "bt" is already in sys.modules'
 
 bt = sys.modules[__name__]
@@ -151,6 +151,7 @@ class Task:
 		this.args = []
 		this.sourceFiles = []
 		this.outputFiles = []
+		this.cache = []
 
 	def setFunction(this, fn):
 		this.fn = fn
@@ -219,10 +220,8 @@ def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, defau
 	`source` and `output` will be searched for files recursively.
 	Callables found therein will be converted into their results.
 
-	`Iterable`s in `input` that are not `Sequence`s will be replaced by lists.
-
 	All routines (as determined by `inspect.isroutine`) found recursively in `input`
-	will be replaced by their results just before the task runs.
+	will be evaluated just before the task runs.
 
 	The task will be skipped if
 	- caching is enabled
@@ -360,16 +359,16 @@ def start():
 
 				return inputs
 
-			task.input = flatten(task.input or 0)
+			task.cache = flatten(task.input or 0)
 
-		task.input = task.input, [path.getmtime(input) for input in task.sourceFiles]
+		task.cache = task.cache, [path.getmtime(source) for source in task.sourceFiles]
 
 		if task.output != []: getFiles(task.output, task.outputFiles, lambda o: f"output {o!r} is not a file (a string, iterable, or callable)")
 
 		if erred: return
 
-		if (skip and not (task.force or force == 1 and initial or force >= 2) and task.input == cache.get(task.name, None)
-		and (task.source != [] or task.input[0] is not None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
+		if (skip and not (task.force or force == 1 and initial or force >= 2) and task.cache == cache.get(task.name, None)
+		and (task.source != [] or task.input is not None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
 			task.state = State.SKIPPED
 			return
 
@@ -403,7 +402,7 @@ def start():
 
 	for task in initialTasks: run(task, initial = True)
 
-	cache.update((task.name, task.input) for task in tasks.values() if task.done)
+	cache.update((task.name, task.cache) for task in tasks.values() if task.done)
 
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
