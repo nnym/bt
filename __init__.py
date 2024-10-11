@@ -141,11 +141,11 @@ class Files:
 	def __repr__(this): return f"Files({", ".join(this.files)})"
 
 class Task:
-	def __init__(this, task: Runnable, dependencies: list[Self], options: dict[str, object]):
+	def __init__(this, task: Runnable, options: dict[str, object]):
 		vars(this).update(options)
 		this.name0 = this.name
 		this.setFunction(task)
-		this.dependencies = dependencies
+		this.dependencies: list[Self | Runnable] = []
 		this.state = State.NORMAL
 		this.force = False
 		this.args = []
@@ -185,7 +185,11 @@ def first[A](iterator: Iterator[A]) -> Optional[A]:
 def group[A, B](iterable: Iterable[A], key: Callable[[A], B]) -> dict[list[B]]:
 	return {it[0]: list(it[1]) for it in itertools.groupby(sorted(iterable, key = key), key)}
 
-def findTask(task: str | Runnable | Task, error = True, command = False) -> Optional[Task]:
+def error(task: Optional[Task], message: str = None):
+	global errors
+	errors += not print(f"Task {task.name}: {message}." if task else message + ".")
+
+def findTask(task: str | Runnable | Task, depender: Task = None, command = False) -> Optional[Task]:
 	if callable(task): return task
 
 	if (match := tasks.get(task, None)) and (match.export or not command):
@@ -195,10 +199,13 @@ def findTask(task: str | Runnable | Task, error = True, command = False) -> Opti
 		match.force = True
 		return match
 
-	if error: exit(print(f'No task matched {task!r}.'))
+	error(depender, f'{"nN"[not depender]}o {["", "exported "][command]}task matched {task!r}')
+	global notFound
+	notFound = True
 
 def registerTask(fn: Runnable, dependencies: Iterable, options):
-	task = Task(fn, [findTask(d) for d in dependencies], options)
+	task = Task(fn, options)
+	task.dependencies = [findTask(d, task) for d in dependencies]
 	tasks[task.name] = task
 	return task
 
@@ -270,21 +277,31 @@ def rm(path: str):
 def start():
 	global started
 	started = True
-	erred = False
-
-	def error(task: Optional[Task], message: str = None):
-		nonlocal erred
-		erred = not print(f"Task {task.name}: {message}." if message else task)
 
 	for task in tasks.values():
 		if not isinstance(task.default, bool): error(task, f"default ({task.default!r}) is not a bool")
 		if not isinstance(task.export, bool): error(task, f"export ({task.export!r}) is not a bool")
 		if len(task.spec.kwonlyargs or []) != len(task.spec.kwonlydefaults or []): error(task, f"can't run with a non-default keyword-only parameter")
 
-	initialTasks = [findTask(task, command = True) or task for task in cmdTasks] or [task for task in tasks.values() if task.default]
+	e = errors
+
+	if not (initialTasks := [findTask(task, command = True) for task in cmdTasks]):
+		initialTasks = [task for task in tasks.values() if task.default]
+
+	if notFound or errors > e: return print("Exported tasks are listed below.", *(name for name, task in tasks.items() if task.export), sep = "\n")
+
 	if initialTasks: initialTasks[-1].args = args
 
-	for task in initialTasks:
+	def recurse(all: dict[Task, Any], tasks: Iterable[Task]):
+		for task in tasks:
+			if task not in all:
+				recurse(all, (d for d in task.dependencies if isinstance(d, Task)))
+				all[task] = 1
+
+	selectedTasks = {}
+	recurse(selectedTasks, initialTasks)
+
+	for task in selectedTasks:
 		arity = len(task.spec.args)
 		min = arity - len(task.spec.defaults or [])
 		count = len(task.args)
@@ -292,10 +309,7 @@ def start():
 		if count < min or count > arity and not task.spec.varargs:
 			error(task, f"received {count} argument{["s", ""][count == 1]} instead of {arity if min == arity else f"{min}-{arity}"}")
 
-	if [not error(f'"{task}" does not match an exported task') for task in initialTasks if isinstance(task, str)]:
-		print("Exported tasks are listed below.", *(name for name, task in tasks.items() if isinstance(name, str)), sep = "\n")
-
-	if erred: return
+	if errors: return
 
 	cache = {}
 
@@ -312,7 +326,7 @@ def start():
 	linesWritten = 0
 
 	def run(task: Task, parent: Task = None, initial = False):
-		if task.running: error(f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
+		if task.running: error(None, f'Circular dependency detected between tasks "{parent.name}" and "{task.name}".')
 		if not task.normal: return
 
 		task.state = State.RUNNING
@@ -365,7 +379,7 @@ def start():
 
 		if task.output != []: getFiles(task.output, task.outputFiles, lambda o: f"output {o!r} is not a file (a string, iterable, or callable)")
 
-		if erred: return
+		if errors: return
 
 		if (skip and not (task.force or force == 1 and initial or force >= 2) and task.cache == cache.get(task.name, None)
 		and (task.source != [] or task.input is not None or task.outputFiles) and all(path.exists(output) for output in task.outputFiles)):
@@ -433,8 +447,9 @@ __all__ = list(exports.keys())
 CACHE = ".bt"
 
 tasks: dict[str, Task] = {}
-
 started = False
+errors = 0
+notFound = False
 
 args0 = sys.argv[1:]
 
