@@ -26,7 +26,7 @@ from typing import Any, Callable, Optional, Self
 
 if sys.version_info < (3, 12): exit(print("bt requires Python 3.12 or newer."))
 
-__version__ = 3
+__version__ = 4
 assert __name__ == "bt" or "bt" not in sys.modules, f'bt\'s module name is "{__name__}" but "bt" is already in sys.modules'
 
 bt = sys.modules[__name__]
