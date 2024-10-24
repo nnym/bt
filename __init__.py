@@ -11,6 +11,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import textwrap
 import threading
 import time
 import traceback
@@ -261,6 +262,11 @@ def shout(*args, capture_output = True, **kwargs) -> str:
 	"Wrap `sh` with `capture_output = True` and return the command's `stdout`."
 	return sh(*args, capture_output = capture_output, **kwargs).stdout
 
+def outdent(text: str) -> str:
+	"""Outdent `text` and strip leading and trailing whitespace.
+	If the last line contains only whitespace, then include a trailing newline."""
+	return textwrap.dedent(text).strip() + "\n"[not re.search(r"\n\s*\Z", text):]
+
 def read(file: str) -> str:
 	"`open`, read and close the `file` and return its contents."
 	with open(file) as fo: return fo.read()
@@ -440,7 +446,7 @@ Currently only names of tasks before they run are printed."""
 current: Task = None
 "The task that is currently running."
 
-exports = bt, Arguments, Files, Task, parameter, require, read, rm, sh, shout, task, write
+exports = bt, Arguments, Files, Task, outdent, parameter, require, read, rm, sh, shout, task, write
 exports = {export.__name__: export for export in exports} | {"FileSpecifier": FileSpecifier, "Runnable": Runnable, "path": path}
 __all__ = list(exports.keys())
 

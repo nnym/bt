@@ -13,11 +13,10 @@ mainc = main + ".c"
 
 @task(export = False, output = mainc)
 def generateSource():
-	import textwrap
-	with open(mainc, "w") as source: source.write(textwrap.dedent("""
+	write(mainc, outdent("""
 		#include <stdio.h>
 		int main() {puts("foo bar");}
-	""").strip())
+	"""))
 
 @task(generateSource, default = True, input = options, output = main)
 def compile():
