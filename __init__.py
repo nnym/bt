@@ -57,6 +57,8 @@ class State(Enum):
 	DONE = 2
 	SKIPPED = 3
 
+	def isof(this, task): return this == task.state
+
 class FlatList(list):
 	def transform(this, x):
 		return x
@@ -262,8 +264,7 @@ class Task:
 
 		return v[o]
 
-	for state in State:
-		vars()[state.name.lower()] = property((lambda state, this: this.state == state).__get__(state))
+	for state in State: vars()[state.name.lower()] = property(state.isof)
 
 @contextlib.contextmanager
 def measure(precision = 1e3):
