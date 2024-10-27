@@ -309,7 +309,7 @@ def require(version: int):
 	if __version__ < version: exit(print(f"bt is version {__version__} but version {version} or newer is required."))
 
 def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, default = False, export = True, pure = False,
-	source: FileSpecifier = [], input: Optional[Any] = None, output: FileSpecifier = []):
+	source: FileSpecifier = [], input: Optional[Any] = None, output: FileSpecifier = []) -> Task:
 	"""Declare a task named `name` to be run at most once from the command line or as a dependency.
 	Each dependency will run before the task.
 
@@ -321,6 +321,9 @@ def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, defau
 
 	`source` and `output` will be searched for files recursively.
 	Callables found therein will be converted into their results.
+
+	`source` may contain glob patterns.
+	The nonexistence of an exact file in `source` is an error.
 
 	All routines (as determined by `inspect.isroutine`) found recursively in `input`
 	will be evaluated just before the task runs.
@@ -338,7 +341,7 @@ def task(*dependencies: str | Task | Runnable, name: Optional[str] = None, defau
 
 	return lambda fn: registerTask(fn, dependencies, options)
 
-def parameter(name: str, default = None, require = False):
+def parameter(name: str, default = None, require = False) -> str:
 	"""Return the value of the parameter `name` if it's set or else `default`.
 	If it's unset and not `require`, then print an error message and exit."""
 
