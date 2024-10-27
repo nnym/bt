@@ -131,11 +131,29 @@ $ bt bravo
 bar
 ```
 
+### Options
+Options can be set for a task as keyword arguments to its decorator's `task` call.
+The following example sets the options [`default`](#defaults) and [`source`](#source).
+```py
+@task(default = True, source = "main.c")
+def sierra(): pass
+```
+
+Alternatively, they can be set as non-positional-only parameters' default values
+or annotations (in Python 3.14 or 3.13 with `__future__.annotations`).
+The latter are lazily evaluated when they are needed.
+
+If the task has a [vararg parameter](#task-arguments), then only keyword-only parameters are interpreted as options.
+
+```py
+@task
+def tango(default: True, source: "main.c"): pass
+```
+
 #### Task arguments
-A sequence of command line arguments can be passed to a task by prefixing it by `--`.
-The last task in the command line or the [default](#defaults) task that is declared last receives them.
-A task can accept or require them as parameters. The arguments must match the task's arity.
-Tasks may not have non-default keyword-only parameters.
+The command line arguments after the first instance of `--` are passed
+to the last task in the command line or the last declared [default](#defaults) task.
+A task can accept or require them as non-[option](#options) parameters. The arguments must match the task's arity.
 
 This task accepts any number of arguments.
 ```py
@@ -152,7 +170,7 @@ $ bt oscar -- foo -- bar
 This task requires exactly 2 arguments.
 ```py
 @task
-def papa(a, b):
+def papa(a, b, /):
 	print(a, "|", b)
 ```
 ```sh

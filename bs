@@ -12,7 +12,7 @@ def build():
 	sh("python -m build")
 
 @task
-def documentation(command = "singlehtml"):
+def documentation(command = "singlehtml", /):
 	from sphinx.cmd.build import main
 	rm(".documentation")
 	sys.stderr = sys.stdout

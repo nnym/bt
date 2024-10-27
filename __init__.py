@@ -19,11 +19,12 @@ import typing
 from collections.abc import Iterable, Iterator, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from enum import Enum
+from inspect import FullArgSpec
 from os import path
 from subprocess import CompletedProcess
 from time import time_ns as ns
-from types import FrameType as Frame
-from typing import Any, Callable, Optional, Self
+from types import  CodeType as Code, FrameType as Frame, FunctionType as Function
+from typing import Any, Callable, Optional, Self, TypeVar
 
 if sys.version_info < (3, 12): exit(print("bt requires Python 3.12 or newer."))
 
@@ -42,6 +43,13 @@ Runnable = Runnable.__value__
 type FileSpecifier = str | typing.Iterable[FileSpecifier] | Callable[[], FileSpecifier]
 FileSpecifier = FileSpecifier.__value__
 """A path or collection of paths."""
+
+PY314 = sys.version_info >= (3, 14)
+
+class Getter:
+	def __init__(this, getter): this.getter = getter
+	def __get__(this, owner, type = None): return this(owner)
+	def __call__(this, owner): return this.getter(owner)
 
 class State(Enum):
 	NORMAL = 0
@@ -147,9 +155,10 @@ class Files:
 
 class Task:
 	def __init__(this, task: Runnable, options: dict[str, object]):
-		vars(this).update(options)
-		this.name0 = this.name
-		this.setFunction(task)
+		this._name: str = None
+		this.options = options
+		this.lazyopts: dict[str, TypeVar] = {}
+		this.spec: FullArgSpec
 		this.dependencies: list[Self | Runnable] = []
 		this.state = State.NORMAL
 		this.force = False
@@ -157,16 +166,14 @@ class Task:
 		this.sourceFiles = []
 		this.outputFiles = []
 		this.cache = []
+		this.setFunction(task)
 
 	def __repr__(this): return f"<Task {this.name}>"
 
-	def setFunction(this, fn):
-		this.fn = fn
-		this.spec = inspect.getfullargspec(fn)
-		if this.name0 is None: this.name = getattr(fn, "__name__", f"<{len(tasks)}>")
-		
 	def __call__(this, *args, **kw):
-		if started: return this.fn(*args, *this.args[len(args):], **kw)
+		if started:
+			for name, option in this.lazyopts.items(): getattr(this, name)
+			return this.fn(*args, *this.args[len(args):], **this.lazyopts, **kw)
 
 		del tasks[this.name]
 		this.dependencies.insert(0, this.fn)
@@ -174,6 +181,86 @@ class Task:
 		tasks[this.name] = this
 
 		return this
+
+	@property
+	def name(this):
+		if "name" in this.lazyopts:
+			n = this.lazyopts["name"]
+			if callable(n): this.lazyopts["name"] = (n := n())
+			return n
+
+		if (name := this.options["name"]) is None: return this._name
+		return name
+
+	def setFunction(this, fn: Runnable):
+		this.fn = fn
+		this._name = getattr(fn, "__name__", f"#{len(tasks)}")
+		co: Code
+
+		if co := getattr(fn, "__code__", None):
+			vn = co.co_varnames[:co.co_argcount + co.co_kwonlyargcount]
+			kw = vn[len(vn) - co.co_kwonlyargcount:]
+
+			this.spec = inspect.FullArgSpec(
+				args = vn[:len(vn) - len(kw)],
+				varargs = bool(co.co_flags & inspect.CO_VARARGS),
+				varkw = bool(co.co_flags & inspect.CO_VARKEYWORDS),
+				defaults = fn.__defaults__,
+				kwonlyargs = kw,
+				kwonlydefaults = fn.__kwdefaults__,
+				annotations = this.lazyopts
+			)
+
+			options = vn[len(vn) - (len(kw) if (this.spec.varargs or kw) else co.co_argcount - co.co_posonlyargcount):]
+			options = [o for o in options if o in allOptions or error(this, f'"{o}" is not the name of an option')]
+
+			if annotate := getattr(fn, "__annotate__", None):
+				co = annotate.__code__
+				code = co.co_code
+				prefix = fn.__name__ + ".annotate."
+				i = 0
+
+				while i < len(code):
+					if dis.opname[code[i]] == "LOAD_CONST" and (name := co.co_consts[code[i + 1]]) in options:
+						start = i + 2
+						end = start
+						stack = 1
+
+						while (i := i + 2) < len(code):
+							op = code[i]
+							stack += dis.stack_effect(op, code[i + 1])
+							if stack == 2: end = i + 2
+
+						i = end
+						this.lazyopts[name] = Function(co.replace(
+							co_name = (n := prefix + name),
+							co_qualname = co.co_qualname.replace("__annotate__", n),
+							co_code = bytes([dis.opmap["RESUME"], 0, *code[start : end], dis.opmap["RETURN_VALUE"], 0])
+						), annotate.__globals__, n, ((".format", 1),))
+					else: i += 2
+			elif allOptions & getattr(fn, "__annotations__", {}).keys():
+				return error(this, "option annotations require Python 3.14 or newer")
+		else: this.spec = inspect.getfullargspec()
+
+		defaults = this.spec.defaults or ()
+
+		for o in options[:-len(defaults) or len(options)]:
+			o in this.lazyopts or error(this, f"option `{o}` does not have a value")
+
+		for o, value in zip(options[-len(defaults):], defaults):
+			this.options[o] = (this.options[o], value) if o in ["source", "input", "output"] else value
+
+	@staticmethod
+	def option(o: str, task: Task if PY314 else Self) -> Any:
+		v = vars(task)
+		v[o] = task.options[o]
+
+		if o in task.lazyopts:
+			value = task.lazyopts[o]()
+			v[o] = (v[o], value) if o in ["source", "input", "output"] else value
+			task.lazyopts[o] = v[o]
+
+		return v[o]
 
 	for state in State:
 		vars()[state.name.lower()] = property((lambda state, this: this.state == state).__get__(state))
@@ -199,10 +286,10 @@ def error(task: Optional[Task], message: str = None):
 def findTask(task: str | Runnable | Task, depender: Task = None, command = False) -> Optional[Task]:
 	if callable(task): return task
 
-	if (match := tasks.get(task, None)) and (match.export or not command):
+	if (match := tasks.get(task, None)) and (not command or match.export):
 		return match
 
-	if task[-1:] == "!" and (match := tasks.get(task[:-1], None)) and (match.export or not command):
+	if task[-1:] == "!" and (match := tasks.get(task[:-1], None)) and (not command or match.export):
 		match.force = True
 		return match
 
@@ -290,10 +377,11 @@ def start():
 	global started
 	started = True
 
+	if errors: return
+
 	for task in tasks.values():
 		if not isinstance(task.default, bool): error(task, f"default ({task.default!r}) is not a bool")
 		if not isinstance(task.export, bool): error(task, f"export ({task.export!r}) is not a bool")
-		if len(task.spec.kwonlyargs or []) != len(task.spec.kwonlydefaults or []): error(task, f"can't run with a non-default keyword-only parameter")
 
 	e = errors
 
@@ -315,7 +403,7 @@ def start():
 	initialTasks.sort(key = lambda t: selectedTasks[t])
 
 	for task in selectedTasks:
-		arity = len(task.spec.args)
+		arity = len(task.spec.args or ()) + len(task.spec.kwonlyargs or ()) - len(task.lazyopts)
 		min = arity - len(task.spec.defaults or [])
 		count = len(task.args)
 
@@ -457,6 +545,10 @@ def main(loadModule):
 			raise e.with_traceback(tb)
 	else: exit(print("No build script (bs or bs.py) was found."))
 
+allOptions = {o: None for o in task.__code__.co_varnames[:task.__code__.co_kwonlyargcount]}
+
+for o in allOptions:
+	if o != "name": setattr(Task, o, Getter(Task.option.__get__(o)))
 
 debug = False
 """Whether to print debugging information.
