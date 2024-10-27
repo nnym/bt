@@ -411,8 +411,8 @@ def start():
 		min = arity - len(task.spec.defaults or [])
 		count = len(task.args)
 
-		if count < min or count > arity and not task.spec.varargs:
-			error(task, f"received {count} argument{["s", ""][count == 1]} instead of {arity if min == arity else f"{min}-{arity}"}")
+		if count < min or (count > arity and not task.spec.varargs):
+			error(task, f"received {count} argument{["s", ""][count == 1]} instead of {min}{[[f"-{arity}", ""][min == arity], " or more"][task.spec.varargs]}")
 
 	if errors: return
 
