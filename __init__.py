@@ -535,12 +535,12 @@ def walkTrace(tb: Traceback) -> Generator[Traceback, None, None]:
 	while tb := tb.tb_next: yield tb
 
 def defer():
-	def handleException(hook, type, value: BaseException, tb: Traceback, thread):
+	def handleException(type, value: BaseException, tb: Traceback, thread, hook):
 		if thread == caller: start.cancel = True
 
 		if type != KeyboardInterrupt:
 			tb = next((tb1 for tb1 in walkTrace(tb) if tb1.tb_frame.f_code.co_filename == bs), tb)
-			hook(type, value.with_traceback(tb), tb)
+			hook(type, value.with_traceback(tb), tb, thread)
 
 	def sigint(signal: int, frame: Frame):
 		sae = libpy.PyThreadState_SetAsyncExc
@@ -554,8 +554,8 @@ def defer():
 	start.cancel = False
 	caller = threading.current_thread()
 	thread = threading.Thread(target = lambda: (caller.join(), start.cancel or start()), daemon = False)
-	sys.excepthook = lambda *a, hook = sys.excepthook: handleException(hook, *a, threading.current_thread())
-	threading.excepthook = lambda a, hook = threading.excepthook: handleException(hook, *a)
+	sys.excepthook = lambda *a, hook = sys.excepthook: handleException(*a, threading.current_thread(), lambda *a: hook(*a[:3]))
+	threading.excepthook = lambda a, hook = threading.excepthook: handleException(*a, lambda *a: hook(ExceptHookArgs(a)))
 	thread.start()
 
 	mkdir(DIR)
