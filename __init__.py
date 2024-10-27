@@ -427,7 +427,20 @@ def start():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
+def defer():
+	def handleException(type, value, traceback, hook = sys.excepthook):
+		if threading.current_thread() == caller: start.cancel = True
+		if type != KeyboardInterrupt: hook(type, value, traceback)
+
+	start.cancel = False
+	caller = threading.current_thread()
+	thread = threading.Thread(target = lambda: (caller.join(), start.cancel or start()), daemon = False)
+	sys.excepthook = handleException
+	thread.start()
+
 def main(loadModule):
+	defer()
+
 	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
 		try: loadModule("bs", entry)
 		except Exception as e:
@@ -437,7 +450,6 @@ def main(loadModule):
 			raise e.with_traceback(tb)
 	else: exit(print("No build script (bs or bs.py) was found."))
 
-	start()
 
 debug = False
 """Whether to print debugging information.
@@ -474,9 +486,5 @@ f: Frame = sys._getframe()
 while f := f.f_back:
 	if dis.opname[(co := f.f_code).co_code[i := f.f_lasti]] in ["IMPORT_NAME", "IMPORT_FROM"] and "__main__" not in co.co_names[co.co_code[i + 1]]:
 		os.chdir(path.dirname(path.realpath(sys.argv[0])))
-		caller = threading.current_thread()
-		thread = threading.Thread(target = lambda: (caller.join(), start()), daemon = False)
-		thread.start()
-		hook, threading.excepthook = threading.excepthook, lambda args: thread._stop() if args.thread == caller else hook(args)
-
+		defer()
 		break
