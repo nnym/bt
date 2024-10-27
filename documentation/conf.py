@@ -15,7 +15,7 @@ html_theme = "furo"
 html_static_path = ["."]
 html_css_files = ["style.css"]
 autodoc_default_options = {
-	"members": True, 
+	"members": True,
 	"special-members": True
 }
 
@@ -44,7 +44,7 @@ def docstring(app, type, name, ob, options, lines):
 	doc = "\n".join(lines)
 	doc = codeBlock.sub(lambda m: f".. code-block:: {m[1]}\n\n" + textwrap.indent(m[2], "    "), doc)
 	lines[:] = inlineCode.sub(lambda m: m[1] + "\\" + m[2] if m[2] else m[0], doc).split("\n")
-	
+
 def setup(app: application.Sphinx):
 	app.add_autodocumenter(BtDocumenter, True)
 	app.connect("autodoc-skip-member", skip)

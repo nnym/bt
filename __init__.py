@@ -388,12 +388,8 @@ def start():
 		if not isinstance(task.export, int): error(task, f"export ({task.export!r}) is not a Boolean value")
 
 	e = errors
-
-	if not (initialTasks := [findTask(task, command = True) for task in cmdTasks]):
-		initialTasks = [task for task in tasks.values() if task.default]
-
+	initialTasks = [findTask(task, command = True) for task in cmdTasks] or [task for task in tasks.values() if task.default]
 	if notFound or errors > e: return print("Exported tasks are listed below.", *(name for name, task in tasks.items() if task.export), sep = "\n")
-
 	if initialTasks: initialTasks[-1].args = args
 
 	def recurse(depth: int, all: dict[Task, int], tasks: Iterable[Task]):
@@ -408,7 +404,7 @@ def start():
 
 	for task in selectedTasks:
 		arity = len(task.spec.args or ()) + len(task.spec.kwonlyargs or ()) - len(task.lazyopts)
-		min = arity - len(task.spec.defaults or [])
+		min = arity - len(task.spec.defaults or ())
 		count = len(task.args)
 
 		if count < min or (count > arity and not task.spec.varargs):
@@ -462,8 +458,8 @@ def start():
 
 			for file in files:
 				if glob.has_magic(file): task.sourceFiles += glob.glob(file, include_hidden = True, recursive = True)
-				elif not path.exists(file): error(task, f'source file "{file}" does not exist')
-				else: task.sourceFiles.append(file)
+				elif path.exists(file): task.sourceFiles.append(file)
+				else: error(task, f'source file "{file}" does not exist')
 
 		if task.input is not None:
 			def flatten(inputs):
@@ -563,7 +559,7 @@ current: Task = None
 
 exports = bt, Arguments, Files, Task, outdent, parameter, require, read, rm, sh, shout, task, write
 exports = {export.__name__: export for export in exports} | {"FileSpecifier": FileSpecifier, "Runnable": Runnable, "path": path}
-__all__ = list(exports.keys())
+__all__ = list(exports)
 
 CACHE = ".bt"
 
