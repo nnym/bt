@@ -19,7 +19,7 @@ html {
 	display: none;
 }
 
-.reference:visited:is(*, :hover) {
+:not(#a#b):visited {
 	color: var(--color-link);
 }
 
