@@ -384,8 +384,8 @@ def start():
 	if errors: return
 
 	for task in tasks.values():
-		if not isinstance(task.default, bool): error(task, f"default ({task.default!r}) is not a bool")
-		if not isinstance(task.export, bool): error(task, f"export ({task.export!r}) is not a bool")
+		if not isinstance(task.default, int): error(task, f"default ({task.default!r}) is not a Boolean value")
+		if not isinstance(task.export, int): error(task, f"export ({task.export!r}) is not a Boolean value")
 
 	e = errors
 
