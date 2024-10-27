@@ -24,9 +24,10 @@ from enum import Enum
 from inspect import FullArgSpec
 from os import path
 from subprocess import CompletedProcess
+from threading import ExceptHookArgs
 from time import time_ns as ns
-from types import  CodeType as Code, FrameType as Frame, FunctionType as Function
-from typing import Any, Callable, Optional, Self, TypeVar
+from types import  CodeType as Code, FrameType as Frame, FunctionType as Function, TracebackType as Traceback
+from typing import Any, Callable, Generator, Optional, Self, TypeVar
 
 if sys.version_info < (3, 12): exit(print("bt requires Python 3.12 or newer."))
 
@@ -529,10 +530,17 @@ def start():
 	with open(CACHE, "bw") as file:
 		pickle.dump(cache, file)
 
+def walkTrace(tb: Traceback) -> Generator[Traceback, None, None]:
+	yield tb
+	while tb := tb.tb_next: yield tb
+
 def defer():
-	def handleException(hook, type, value, traceback, thread):
+	def handleException(hook, type, value: BaseException, tb: Traceback, thread):
 		if thread == caller: start.cancel = True
-		if type != KeyboardInterrupt: hook(type, value, traceback)
+
+		if type != KeyboardInterrupt:
+			tb = next((tb1 for tb1 in walkTrace(tb) if tb1.tb_frame.f_code.co_filename == bs), tb)
+			hook(type, value.with_traceback(tb), tb)
 
 	def sigint(signal: int, frame: Frame):
 		sae = libpy.PyThreadState_SetAsyncExc
@@ -556,15 +564,10 @@ def main(loadModule):
 	defer()
 
 	if entry := first(entry for entry in ["bs.py", "bs"] if path.exists(entry)):
+		global bs
 		bs = DIR + "/bs"
 		if not os.path.lexists(bs): os.symlink(os.path.abspath(entry), bs)
-
-		try: loadModule("bs", bs)
-		except Exception as e:
-			tb = e.__traceback__
-			while tb and tb.tb_frame.f_code.co_filename != bs: tb = tb.tb_next
-			if tb: e.__traceback__ = tb
-			raise e.with_traceback(tb)
+		loadModule("bs", bs)
 	else: exit(print("No build script (bs or bs.py) was found."))
 
 allOptions = {o: None for o in task.__code__.co_varnames[:task.__code__.co_kwonlyargcount]}
@@ -590,6 +593,7 @@ tasks: dict[str, Task] = {}
 started = False
 errors = 0
 notFound = False
+bs = ()
 
 args0 = sys.argv[1:]
 
