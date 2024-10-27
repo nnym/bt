@@ -5,6 +5,7 @@ import sphinx
 import sys
 import textwrap
 from sphinx import application
+from sphinx.util import nodes
 from sphinx.ext.autodoc import Documenter, FunctionDocumenter, ModuleDocumenter
 from typing import TypeAliasType as TypeAlias
 
@@ -26,6 +27,9 @@ class BtDocumenter(ModuleDocumenter):
 		super().sort_members(members, order)
 		members.sort(key = lambda m: {"data": 0, "class": 2, "function": 4}[m[0].objtype] + m[0].name[m[0].name.rindex(":") + 1].isupper())
 		return members
+
+nodes.make_id = lambda environment, document, prefix = "", suffix = None, make_id = nodes.make_id:\
+	make_id(environment, document, prefix, suffix).lstrip("bt.")
 
 def skip(app, scope, name, ob, skip, options):
 	if name in options.get("exclude-members", []): return True
