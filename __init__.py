@@ -9,6 +9,7 @@ import pickle
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import textwrap
@@ -17,6 +18,7 @@ import time
 import traceback
 import typing
 from collections.abc import Iterable, Iterator, Mapping, MutableSequence, Sequence
+from ctypes import pythonapi as libpy, c_long, py_object
 from dataclasses import dataclass
 from enum import Enum
 from inspect import FullArgSpec
@@ -523,14 +525,24 @@ def start():
 		pickle.dump(cache, file)
 
 def defer():
-	def handleException(type, value, traceback, hook = sys.excepthook):
-		if threading.current_thread() == caller: start.cancel = True
+	def handleException(hook, type, value, traceback, thread):
+		if thread == caller: start.cancel = True
 		if type != KeyboardInterrupt: hook(type, value, traceback)
+
+	def sigint(signal: int, frame: Frame):
+		sae = libpy.PyThreadState_SetAsyncExc
+		sae.argtypes = (c_long, py_object)
+
+		for thread in threading.enumerate():
+			if thread.is_alive(): sae(thread.ident, py_object(KeyboardInterrupt))
+
+	signal.signal(signal.SIGINT, sigint)
 
 	start.cancel = False
 	caller = threading.current_thread()
 	thread = threading.Thread(target = lambda: (caller.join(), start.cancel or start()), daemon = False)
-	sys.excepthook = handleException
+	sys.excepthook = lambda *a, hook = sys.excepthook: handleException(hook, *a, threading.current_thread())
+	threading.excepthook = lambda a, hook = threading.excepthook: handleException(hook, *a)
 	thread.start()
 
 def main(loadModule):
