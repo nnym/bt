@@ -86,7 +86,7 @@ class FlatList(list):
 		return this.extend(x)
 
 	def __add__(this, x):
-		return this.copy().extend(x)
+		return this.copy().__iadd__(x)
 
 class Arguments(FlatList):
 	"""`Arguments` is a `list` derivative that stores a full or partial command line.
@@ -121,6 +121,10 @@ class Arguments(FlatList):
 	def __str__(this):
 		"Return all elements joined by spaces."
 		return " ".join(this)
+
+	def __iadd__(this, arguments):
+		this.append(arguments)
+		return this
 
 @dataclass
 class Files:
