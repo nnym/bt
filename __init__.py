@@ -158,6 +158,8 @@ class Task:
 		this.outputFiles = []
 		this.cache = []
 
+	def __repr__(this): return f"<Task {this.name}>"
+
 	def setFunction(this, fn):
 		this.fn = fn
 		this.spec = inspect.getfullargspec(fn)
