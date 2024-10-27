@@ -30,7 +30,7 @@ from typing import Any, Callable, Optional, Self, TypeVar
 
 if sys.version_info < (3, 12): exit(print("bt requires Python 3.12 or newer."))
 
-__version__ = 5
+__version__ = 6
 assert __name__ == "bt" or "bt" not in sys.modules, f'bt\'s module name is "{__name__}" but "bt" is already in sys.modules'
 
 bt = sys.modules[__name__]
@@ -548,7 +548,7 @@ def defer():
 def main(loadModule):
 	defer()
 
-	if entry := first(entry for entry in ["bs", "bs.py"] if path.exists(entry)):
+	if entry := first(entry for entry in ["bs.py", "bs"] if path.exists(entry)):
 		try: loadModule("bs", entry)
 		except Exception as e:
 			tb = e.__traceback__

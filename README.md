@@ -75,7 +75,7 @@ Alternatively, bt can be cloned anywhere; [`__main__.py`](__main__.py) is the ex
 ### Running
 bt can run as an [executable](#executable) or as a [library](#library) imported by the build script.
 
-bt can be run as an executable if the build script is named `bs` or `bs.py` and bt is installed
+bt can be run as an executable if the build script is named `bs.py` or `bs` and bt is installed
 - globally (`bt foo` if bt is in `PATH` or `python -m bt foo`)
 - or locally (`python bt foo`).
 
@@ -84,7 +84,7 @@ In both cases, bt can be run by being [imported](#library) by the build script (
 On Windows, `py` can be used instead of `python`. It can be useful if the build script's name does not have the extension `.py`.
 
 #### Executable
-bt searches for a build script named `bs` or `bs.py` in the current directory and runs it.
+bt searches for a build script named `bs.py` or `bs` in the current directory and runs it.
 
 1. Make a build script in a new or existing project directory.
 ```py
