@@ -298,14 +298,15 @@ def start():
 
 	if initialTasks: initialTasks[-1].args = args
 
-	def recurse(all: dict[Task, Any], tasks: Iterable[Task]):
+	def recurse(depth: int, all: dict[Task, int], tasks: Iterable[Task]):
 		for task in tasks:
-			if task not in all:
-				recurse(all, (d for d in task.dependencies if isinstance(d, Task)))
-				all[task] = 1
+			if all.get(task, -1) < depth:
+				all[task] = depth
+				recurse(depth + 1, all, (d for d in task.dependencies if isinstance(d, Task)))
 
-	selectedTasks = {}
-	recurse(selectedTasks, initialTasks)
+	selectedTasks: dict[Task, int] = {}
+	recurse(0, selectedTasks, initialTasks)
+	initialTasks.sort(key = lambda t: selectedTasks[t])
 
 	for task in selectedTasks:
 		arity = len(task.spec.args)
