@@ -374,6 +374,11 @@ def write(file: str, contents: str):
 	"`open`, write `contents` to and close the `file`."
 	with open(file, "w") as fo: fo.write(contents)
 
+def mkdir(path: str, new = False):
+	"""Make a directory with the given `path`, also making its ancestors if necessary.
+	If `new` and the path already exists, then raise an exception."""
+	os.makedirs(path, exist_ok = not new)
+
 def rm(path: str):
 	"Remove the specified path recursively if it exists."
 	if os.path.isdir(path) and not os.path.islink(path): shutil.rmtree(path)
@@ -490,7 +495,7 @@ def start():
 			return
 
 		for directory in {path.dirname(path.abspath(output)) for output in task.outputFiles}:
-			os.makedirs(directory, exist_ok = True)
+			mkdir(directory)
 
 		nonlocal linesWritten
 
@@ -569,7 +574,7 @@ Currently only names of tasks before they run are printed."""
 current: Task = None
 "The task that is currently running."
 
-exports = bt, Arguments, Files, Task, outdent, parameter, require, read, rm, sh, shout, task, write
+exports = bt, Arguments, Files, Task, mkdir, outdent, parameter, require, read, rm, sh, shout, task, write
 exports = {export.__name__: export for export in exports} | {"FileSpecifier": FileSpecifier, "Runnable": Runnable, "path": path}
 __all__ = list(exports)
 
