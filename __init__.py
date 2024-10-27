@@ -550,14 +550,19 @@ def defer():
 	threading.excepthook = lambda a, hook = threading.excepthook: handleException(hook, *a)
 	thread.start()
 
+	mkdir(DIR)
+
 def main(loadModule):
 	defer()
 
 	if entry := first(entry for entry in ["bs.py", "bs"] if path.exists(entry)):
-		try: loadModule("bs", entry)
+		bs = DIR + "/bs"
+		if not os.path.lexists(bs): os.symlink(os.path.abspath(entry), bs)
+
+		try: loadModule("bs", bs)
 		except Exception as e:
 			tb = e.__traceback__
-			while tb and tb.tb_frame.f_code.co_filename != entry: tb = tb.tb_next
+			while tb and tb.tb_frame.f_code.co_filename != bs: tb = tb.tb_next
 			if tb: e.__traceback__ = tb
 			raise e.with_traceback(tb)
 	else: exit(print("No build script (bs or bs.py) was found."))
@@ -578,7 +583,8 @@ exports = bt, Arguments, Files, Task, mkdir, outdent, parameter, require, read, 
 exports = {export.__name__: export for export in exports} | {"FileSpecifier": FileSpecifier, "Runnable": Runnable, "path": path}
 __all__ = list(exports)
 
-CACHE = ".bt"
+DIR = ".bt"
+CACHE = DIR + "/cache"
 
 tasks: dict[str, Task] = {}
 started = False
